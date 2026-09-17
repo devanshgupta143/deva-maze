@@ -1,0 +1,2824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Deva Maze</title>
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --saffron:#ff9328;
+    --cyan:#1ff2ff;
+    --magenta:#ff2fd6;
+    --lime:#a6ff2e;
+    --panel:#101014;
+    --wall:#3a1f52;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body{
+    margin:0; padding:0;
+    width:100%;
+    height:100dvh;
+    overscroll-behavior: none;
+    touch-action: none;
+    overflow:hidden;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color:#eee;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+
+  body{
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 0%, rgba(255,47,214,0.10), transparent 60%),
+      radial-gradient(ellipse 80% 60% at 100% 100%, rgba(31,242,255,0.10), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 50% 50%, rgba(166,255,46,0.05), transparent 70%),
+      var(--bg);
+  }
+
+  #app{
+    position:relative;
+    width:100vw;
+    height:100dvh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 10px;
+    gap:6px;
+    background:linear-gradient(180deg, rgba(24,20,32,0.92), rgba(8,8,12,0.9));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom:1px solid rgba(31,242,255,0.3);
+    box-shadow:0 2px 24px rgba(31,242,255,0.15), 0 1px 0 rgba(255,47,214,0.15) inset;
+    z-index:20;
+    flex-shrink:0;
+    flex-wrap:wrap;
+    row-gap:6px;
+  }
+  .hud-stat{
+    display:flex; flex-direction:column; align-items:center;
+    min-width:42px;
+    font-size:9px;
+    letter-spacing:0.5px;
+    color:#888;
+    text-transform:uppercase;
+  }
+  .hud-stat span.val{
+    font-size:13px;
+    font-weight:700;
+    margin-top:2px;
+    white-space:nowrap;
+  }
+  #hud-level .val{ color:var(--saffron); text-shadow:0 0 8px var(--saffron), 0 0 16px rgba(255,147,40,0.5); }
+  #hud-deaths .val{ color:var(--magenta); text-shadow:0 0 8px var(--magenta), 0 0 16px rgba(255,47,214,0.5); }
+  #hud-time .val{ color:var(--cyan); text-shadow:0 0 8px var(--cyan), 0 0 16px rgba(31,242,255,0.5); }
+  #hud-score .val{ color:var(--saffron); text-shadow:0 0 8px var(--saffron), 0 0 16px rgba(255,147,40,0.5); }
+  #hud-status .val{ color:var(--lime); text-shadow:0 0 8px var(--lime), 0 0 16px rgba(166,255,46,0.5); font-size:10px; }
+
+  .hud-controls{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+
+  .hud-btn{
+    display:flex; align-items:center; gap:4px;
+    padding:6px 10px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .hud-btn:active{ transform:scale(0.95); }
+
+  #restart-btn{
+    background:linear-gradient(180deg, rgba(255,147,40,0.14), rgba(255,147,40,0.04));
+    border:1px solid var(--saffron);
+    color:var(--saffron);
+    box-shadow:0 0 10px rgba(255,147,40,0.35), inset 0 0 6px rgba(255,147,40,0.12);
+    text-shadow:0 0 6px rgba(255,147,40,0.6);
+  }
+
+  #hint-btn{
+    background:linear-gradient(180deg, rgba(31,242,255,0.14), rgba(31,242,255,0.04));
+    border:1px solid var(--cyan);
+    color:var(--cyan);
+    box-shadow:0 0 10px rgba(31,242,255,0.4), inset 0 0 6px rgba(31,242,255,0.12);
+    text-shadow:0 0 6px rgba(31,242,255,0.6);
+  }
+
+  #profile-chip{
+    display:flex; align-items:center; gap:6px;
+    padding:6px 12px;
+    border-radius:20px;
+    background:linear-gradient(180deg, rgba(166,255,46,0.14), rgba(166,255,46,0.05));
+    border:1px solid var(--lime);
+    box-shadow:0 0 12px rgba(166,255,46,0.45), inset 0 0 8px rgba(166,255,46,0.15);
+    font-size:11px;
+    font-weight:600;
+    color:var(--lime);
+    cursor:pointer;
+    white-space:nowrap;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  #profile-chip:hover{ box-shadow:0 0 18px rgba(166,255,46,0.7), inset 0 0 10px rgba(166,255,46,0.25); }
+  #profile-chip:active{ transform:scale(0.95); }
+
+  /* ---------- Canvas Stage ---------- */
+  #stage{
+    flex:1;
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:0;
+    position:relative;
+  }
+  #gameCanvas{
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(31,242,255,0.04), transparent 70%),
+      #050506;
+    border:2px solid var(--cyan);
+    box-shadow:
+      0 0 30px rgba(31,242,255,0.45),
+      0 0 60px rgba(255,47,214,0.12),
+      inset 0 0 40px rgba(31,242,255,0.08);
+    border-radius:8px;
+  }
+
+  #flash-overlay{
+    position:absolute;
+    inset:0;
+    background:rgba(255,0,60,0.55);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.08s ease-out;
+    z-index:15;
+  }
+  #flash-overlay.active{
+    opacity:1;
+    transition:opacity 0s;
+  }
+
+  /* ---------- Touch Controls ---------- */
+  #touch-controls{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 16px 12px;
+    flex-shrink:0;
+    z-index:20;
+  }
+  #dpad{
+    display:grid;
+    grid-template-columns:42px 42px 42px;
+    grid-template-rows:42px 42px 42px;
+    gap:3px;
+  }
+  .dpad-btn{
+    background:linear-gradient(180deg, rgba(255,147,40,0.14), rgba(255,147,40,0.04));
+    border:1px solid var(--saffron);
+    color:var(--saffron);
+    box-shadow:0 0 10px rgba(255,147,40,0.4), inset 0 0 5px rgba(255,147,40,0.15);
+    border-radius:9px;
+    font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+    touch-action:none;
+    text-shadow:0 0 8px rgba(255,147,40,0.8);
+    transition: box-shadow 0.1s ease, transform 0.1s ease;
+  }
+  .dpad-btn:active, .dpad-btn.pressed{
+    background:linear-gradient(180deg, rgba(255,147,40,0.45), rgba(255,147,40,0.15));
+    box-shadow:0 0 18px rgba(255,147,40,0.8), inset 0 0 8px rgba(255,147,40,0.3);
+    transform:scale(0.92);
+  }
+  #dpad-up{ grid-column:2; grid-row:1; }
+  #dpad-left{ grid-column:1; grid-row:2; }
+  #dpad-right{ grid-column:3; grid-row:2; }
+  #dpad-down{ grid-column:2; grid-row:3; }
+
+  #action-btn{
+    width:62px; height:62px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, rgba(255,47,214,0.35), rgba(255,47,214,0.08) 70%);
+    border:2px solid var(--magenta);
+    color:var(--magenta);
+    box-shadow:0 0 18px rgba(255,47,214,0.55), inset 0 0 12px rgba(255,47,214,0.2);
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:1px;
+    text-shadow:0 0 8px rgba(255,47,214,0.9);
+    touch-action:none;
+    transition: box-shadow 0.1s ease, transform 0.1s ease;
+  }
+  #action-btn:active, #action-btn.pressed{
+    background:radial-gradient(circle at 35% 30%, rgba(255,47,214,0.6), rgba(255,47,214,0.2) 70%);
+    box-shadow:0 0 28px rgba(255,47,214,0.9), inset 0 0 16px rgba(255,47,214,0.35);
+    transform:scale(0.92);
+  }
+
+  @media (min-width: 900px){
+    #touch-controls{ display:none; }
+  }
+
+  /* ---------- Overlays ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255,47,214,0.08), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 50% 100%, rgba(31,242,255,0.08), transparent 60%),
+      rgba(6,6,8,0.97);
+    display:flex; align-items:center; justify-content:center;
+    z-index:100;
+    padding:20px;
+    overflow-y:auto;
+  }
+  .overlay.hidden{ display:none; }
+  .hidden { display: none !important; }
+
+  .overlay-card{
+    width:100%;
+    max-width:400px;
+    background:linear-gradient(160deg, rgba(22,18,30,0.95), rgba(10,10,14,0.98));
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border:1px solid rgba(31,242,255,0.35);
+    border-radius:16px;
+    padding:28px 24px;
+    box-shadow:
+      0 0 50px rgba(31,242,255,0.2),
+      0 0 90px rgba(255,47,214,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    text-align:center;
+    max-height:90dvh;
+    overflow-y:auto;
+  }
+
+  .overlay-title{
+    font-size:24px;
+    font-weight:800;
+    margin:0 0 4px;
+    color:var(--saffron);
+    text-shadow:0 0 14px rgba(255,147,40,0.7), 0 0 28px rgba(255,147,40,0.3);
+    letter-spacing:1px;
+  }
+  .overlay-sub{
+    font-size:12px;
+    color:#888;
+    margin-bottom:18px;
+    letter-spacing:0.5px;
+  }
+
+  .neon-input{
+    width:100%;
+    padding:14px 12px;
+    font-size:16px;
+    background:#0c0c10;
+    border:1px solid var(--cyan);
+    border-radius:8px;
+    color:#fff;
+    outline:none;
+    margin-bottom:14px;
+    box-shadow:inset 0 0 12px rgba(31,242,255,0.12), 0 0 8px rgba(31,242,255,0.15);
+  }
+  .neon-input:focus{
+    box-shadow:0 0 16px rgba(31,242,255,0.6), inset 0 0 12px rgba(31,242,255,0.2);
+  }
+
+  .neon-btn{
+    width:100%;
+    padding:14px;
+    font-size:15px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    border-radius:8px;
+    border:1px solid var(--cyan);
+    background:linear-gradient(180deg, rgba(31,242,255,0.16), rgba(31,242,255,0.04));
+    color:var(--cyan);
+    box-shadow:0 0 16px rgba(31,242,255,0.35), inset 0 0 8px rgba(31,242,255,0.1);
+    margin-bottom:12px;
+    cursor:pointer;
+    text-shadow:0 0 8px rgba(31,242,255,0.6);
+    transition: box-shadow 0.15s ease, transform 0.1s ease, background 0.15s ease;
+  }
+  .neon-btn:hover{
+    box-shadow:0 0 24px rgba(31,242,255,0.6), inset 0 0 10px rgba(31,242,255,0.2);
+    background:linear-gradient(180deg, rgba(31,242,255,0.26), rgba(31,242,255,0.08));
+  }
+  .neon-btn:active{ transform:scale(0.98); }
+
+  .neon-btn.secondary{
+    border-color:var(--lime);
+    color:var(--lime);
+    background:linear-gradient(180deg, rgba(166,255,46,0.14), rgba(166,255,46,0.03));
+    box-shadow:0 0 16px rgba(166,255,46,0.3), inset 0 0 8px rgba(166,255,46,0.1);
+    text-shadow:0 0 8px rgba(166,255,46,0.6);
+  }
+  .neon-btn.secondary:hover{
+    box-shadow:0 0 24px rgba(166,255,46,0.55), inset 0 0 10px rgba(166,255,46,0.2);
+    background:linear-gradient(180deg, rgba(166,255,46,0.24), rgba(166,255,46,0.06));
+  }
+
+  .neon-btn.magenta{
+    border-color:var(--magenta);
+    color:var(--magenta);
+    background:linear-gradient(180deg, rgba(255,47,214,0.16), rgba(255,47,214,0.04));
+    box-shadow:0 0 16px rgba(255,47,214,0.4), inset 0 0 8px rgba(255,47,214,0.12);
+    text-shadow:0 0 8px rgba(255,47,214,0.6);
+  }
+  .neon-btn.magenta:hover{
+    box-shadow:0 0 26px rgba(255,47,214,0.65), inset 0 0 10px rgba(255,47,214,0.22);
+    background:linear-gradient(180deg, rgba(255,47,214,0.26), rgba(255,47,214,0.08));
+  }
+
+  #auth-error{
+    color:var(--magenta);
+    font-size:12px;
+    min-height:16px;
+    margin-bottom:8px;
+    text-shadow:0 0 6px rgba(255,47,214,0.5);
+  }
+
+  .rank-badge{
+    font-size:64px;
+    font-weight:900;
+    margin:10px 0;
+    line-height:1;
+  }
+  .rank-S{ color:var(--lime); text-shadow:0 0 30px var(--lime), 0 0 60px rgba(166,255,46,0.4); }
+  .rank-A{ color:var(--cyan); text-shadow:0 0 30px var(--cyan), 0 0 60px rgba(31,242,255,0.4); }
+  .rank-B{ color:var(--saffron); text-shadow:0 0 30px var(--saffron), 0 0 60px rgba(255,147,40,0.4); }
+  .rank-C{ color:var(--magenta); text-shadow:0 0 30px var(--magenta), 0 0 60px rgba(255,47,214,0.4); }
+
+  .score-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    color:#aaa;
+    padding:6px 0;
+    border-bottom:1px dashed rgba(255,255,255,0.08);
+  }
+  .score-row span:last-child{ color:#fff; font-weight:600; }
+
+  .lore-box{
+    font-size:12px;
+    color:#999;
+    font-style:italic;
+    margin-top:14px;
+    line-height:1.5;
+  }
+
+  .rules-list{
+    text-align:left;
+    font-size:13px;
+    color:#ccc;
+    line-height:1.7;
+    margin:10px 0 18px;
+    padding-left:18px;
+  }
+  .rules-list li{ margin-bottom:6px; }
+  .rules-list b{ color:var(--saffron); }
+  .rules-list .pink{ color:var(--magenta); }
+  .rules-list .cyan{ color:var(--cyan); }
+
+  #level-intro-overlay .overlay-title{ color:var(--cyan); text-shadow:0 0 14px rgba(31,242,255,0.7); }
+  #intro-lore{
+    font-size:14px;
+    font-style:italic;
+    color:#e2c9ff;
+    text-shadow:0 0 8px rgba(183,107,255,0.5);
+    line-height:1.55;
+    margin:12px 0 20px;
+  }
+
+  .hint-section{
+    text-align:left;
+    margin-bottom:14px;
+  }
+  .hint-section h3{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    margin:0 0 6px;
+    color:var(--cyan);
+    text-shadow:0 0 8px rgba(31,242,255,0.6);
+  }
+  .hint-section p{
+    font-size:13px;
+    color:#ddd;
+    line-height:1.55;
+    margin:0;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-stat" id="hud-level">LEVEL<span class="val" id="val-level">1</span></div>
+    <div class="hud-stat" id="hud-deaths">DEATHS<span class="val" id="val-deaths">0</span></div>
+    <div class="hud-stat" id="hud-time">TIME<span class="val" id="val-time">00:00</span></div>
+    <div class="hud-stat" id="hud-score">SCORE<span class="val" id="val-score">0</span></div>
+    <div class="hud-stat" id="hud-status">STATUS<span class="val" id="val-status">-</span></div>
+    <div class="hud-controls">
+      <div class="hud-btn" id="restart-btn">↻ RESTART</div>
+      <div class="hud-btn" id="hint-btn">? HINT</div>
+      <div id="profile-chip">👤 <span id="profile-label">Guest</span></div>
+    </div>
+  </div>
+
+  <!-- Stage -->
+  <div id="stage">
+    <canvas id="gameCanvas"></canvas>
+    <div id="flash-overlay"></div>
+  </div>
+
+  <!-- Touch Controls -->
+  <div id="touch-controls">
+    <div id="dpad">
+      <button class="dpad-btn" id="dpad-up">▲</button>
+      <button class="dpad-btn" id="dpad-left">◀</button>
+      <button class="dpad-btn" id="dpad-right">▶</button>
+      <button class="dpad-btn" id="dpad-down">▼</button>
+    </div>
+    <button id="action-btn">ACT</button>
+  </div>
+
+</div>
+
+<!-- Auth Overlay -->
+<div class="overlay" id="auth-overlay">
+  <div class="overlay-card">
+    <h1 class="overlay-title">DEVA MAZE</h1>
+    <div class="overlay-sub">Navigate the void. Find the light.</div>
+    <div id="auth-error"></div>
+    <input type="tel" inputmode="numeric" class="neon-input" id="phone-input" placeholder="Enter Mobile Number" maxlength="15">
+    <button class="neon-btn" id="btn-login">Login with Mobile Number</button>
+    <button class="neon-btn secondary" id="btn-guest">Play as Guest</button>
+  </div>
+</div>
+
+<!-- Rules of Ascension Overlay -->
+<div class="overlay hidden" id="rules-overlay">
+  <div class="overlay-card">
+    <h1 class="overlay-title">Rules of Ascension</h1>
+    <div class="overlay-sub">Read carefully before you begin</div>
+    <ul class="rules-list">
+      <li>Find the glowing <b>yellow Modak</b> on each level to reach the goal.</li>
+      <li>Touching a <span class="pink">pink trap</span> or a decoy item ends your run instantly and resets you to the start.</li>
+      <li>Not everything is what it seems — some walls are <b>fake walls</b> you can walk through, and some open floors are <b>fake floors</b> that block you.</li>
+      <li>Press the <span class="cyan">ACT button</span> (or Space/E on keyboard) to use special abilities like flight, dropping barriers, or placing items.</li>
+      <li>Your score drops the longer you take and the more you die — move with purpose.</li>
+      <li>Use the <span class="cyan">? HINT</span> button anytime if you're stuck.</li>
+    </ul>
+    <button class="neon-btn magenta" id="btn-rules-begin">Begin</button>
+  </div>
+</div>
+
+<!-- Level Intro Overlay -->
+<div class="overlay hidden" id="level-intro-overlay">
+  <div class="overlay-card">
+    <div class="overlay-sub" id="intro-level-tag">LEVEL 1</div>
+    <h1 class="overlay-title" id="intro-level-name">The Race</h1>
+    <div id="intro-lore"></div>
+    <button class="neon-btn" id="btn-intro-enter">Enter the Maze</button>
+  </div>
+</div>
+
+<!-- Hint Overlay -->
+<div class="overlay hidden" id="hint-overlay">
+  <div class="overlay-card">
+    <h1 class="overlay-title" style="color:var(--cyan); text-shadow:0 0 14px rgba(31,242,255,0.7);">Need Guidance?</h1>
+    <div class="hint-section">
+      <h3>The Riddle</h3>
+      <p id="hint-riddle-text"></p>
+    </div>
+    
+    <button class="neon-btn secondary" id="btn-reveal-hint" style="margin-bottom: 20px;">Reveal Direct Hint</button>
+
+    <div id="hint-direct-container" class="hidden">
+      <div class="hint-section">
+        <h3>Direct Hint</h3>
+        <p id="hint-direct-text"></p>
+      </div>
+    </div>
+    
+    <button class="neon-btn magenta" id="btn-hint-close">Resume</button>
+  </div>
+</div>
+
+<!-- Quote / Wisdom Overlay -->
+<div class="overlay hidden" id="quote-overlay">
+  <div class="overlay-card">
+    <div class="overlay-sub">WISDOM</div>
+    <div class="lore-box" id="quote-text" style="font-size:15px;"></div>
+    <button class="neon-btn" id="btn-ponder">Ponder</button>
+  </div>
+</div>
+
+<!-- Scorecard Overlay -->
+<div class="overlay hidden" id="scorecard-overlay">
+  <div class="overlay-card">
+    <div class="overlay-sub">ACT COMPLETE</div>
+    <div class="rank-badge" id="rank-display">S</div>
+    <div class="score-row"><span>Act Score</span><span id="score-val">0</span></div>
+    <div class="score-row"><span>Time in Act</span><span id="score-time">00:00</span></div>
+    <div class="score-row"><span>Deaths in Act</span><span id="score-deaths">0</span></div>
+    <div class="lore-box" id="score-lore"></div>
+    <button class="neon-btn magenta" id="btn-continue" style="margin-top:20px;">Continue</button>
+  </div>
+</div>
+
+<!-- Grand Finale Overlay -->
+<div class="overlay hidden" id="end-overlay">
+  <div class="overlay-card">
+    <h1 class="overlay-title">ASCENSION COMPLETE</h1>
+    <div class="overlay-sub">You have conquered the Deva Maze</div>
+    <div class="score-row"><span>Total Time</span><span id="end-time">00:00</span></div>
+    <div class="score-row"><span>Total Deaths</span><span id="end-deaths">0</span></div>
+    <button class="neon-btn magenta" id="btn-end-restart" style="margin-top:20px;">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ============================================================
+     TILE DICTIONARY
+  ============================================================ */
+  const TILE = {
+    FLOOR:0, WALL:1, GOAL:3, TRAP:4,
+    STATUE:5, TUSK:6, WATER:7, SNAKE:8, FEATHER:9, FAKE_TRAP:10,
+    MODAK:11, NARROW_GAP:12,
+    ENEMY:13, RICE:14, CAT:15, PLATE:16, ARTIFACT:17, EARTH:18, FAKE_EARTH:19,
+    DECOY_GENERIC:20, DECOY_PEN:21, DECOY_STICK:22, DECOY_SNAKE:23, DECOY_FEATHER:24,
+    FAKE_WALL:30, FAKE_FLOOR:31,
+    MOUSE:40, CRACKED_WALL:41, HEAD:42, TULSI:43, FIRE:44, DURVA:45
+  };
+
+  const DECOY_TILES = new Set([
+    TILE.DECOY_GENERIC, TILE.DECOY_PEN, TILE.DECOY_STICK, TILE.DECOY_SNAKE, TILE.DECOY_FEATHER
+  ]);
+
+  const COLORS = {
+    WALL_FILL:'#1a0f28', WALL_STROKE:'rgba(255,47,214,0.25)',
+    GOAL:'#ffc93c', TRAP:'#ff2fd6', FAKE_TRAP:'#ff2fd6',
+    STATUE_BLUE:'#3f6bff', STATUE_PINK:'#ff7dd6', STATUE_HALO:'#ffd25a',
+    TUSK:'#f2ede0', WATER:'#1ff2ff',
+    SNAKE_TRUE:'#39ff6a', SNAKE_DECOY:'#ff3b3b',
+    FEATHER_TRUE_GLOW:'#9b6bff', FEATHER_TRUE_FILL:'#161616',
+    FEATHER_DECOY:'#f5f5f5',
+    MODAK:'#ffb347', NARROW_GAP:'#1ff2ff',
+    PLAYER:'#1ff2ff', PLAYER_CORE:'#e8feff',
+    DECOY_GENERIC:'#ffe066', DECOY_PEN:'#ffd23f', DECOY_STICK:'#d99a52',
+    ENEMY:'#ff2f4d', RICE:'#ffffff', CAT:'#ff9328', PLATE:'#ffe066',
+    ARTIFACT:'#ffd25a', EARTH:'#c98a4b', EARTH_DECOY:'#7a4a2b', LASER:'#ff2b2b',
+    MOUSE:'#b967ff', CRACK:'#ff6a3d', HEAD:'#a9895c', TULSI:'#3ddc63',
+    FIRE:'#ff6a00', DURVA:'#4dff88'
+  };
+
+  const GRID_SIZE = 15;
+
+  /* ============================================================
+     MAP PARSING & GRID HELPERS
+  ============================================================ */
+  const CHAR_TILE = {
+    '#':TILE.WALL, '.':TILE.FLOOR, 'S':TILE.STATUE, 'G':TILE.GOAL,
+    'T':TILE.TRAP, 'F':TILE.FAKE_TRAP, 'W':TILE.WATER, 'U':TILE.TUSK,
+    'N':TILE.SNAKE, 'E':TILE.FEATHER, 'M':TILE.MODAK, 'P':TILE.NARROW_GAP,
+    'D':TILE.DECOY_GENERIC, 'K':TILE.DECOY_PEN, 'X':TILE.DECOY_STICK,
+    'R':TILE.DECOY_SNAKE, 'H':TILE.DECOY_FEATHER,
+    'p':TILE.PLATE, 'e':TILE.EARTH, 'y':TILE.FAKE_EARTH, 'i':TILE.RICE,
+    'z':TILE.FAKE_WALL, 'q':TILE.FAKE_FLOOR,
+    'm':TILE.MOUSE, 'c':TILE.CRACKED_WALL, 'h':TILE.HEAD,
+    't':TILE.TULSI, 'f':TILE.FIRE, 'd':TILE.DURVA
+  };
+
+  function parseMap(rows){
+    return rows.map(row => row.split('').map(ch => (ch in CHAR_TILE) ? CHAR_TILE[ch] : TILE.WALL));
+  }
+
+  function makeGrid(fillChar){
+    const rows = [];
+    for(let y=0;y<GRID_SIZE;y++){
+      if(y===0||y===GRID_SIZE-1){ rows.push('#'.repeat(GRID_SIZE)); }
+      else { rows.push('#' + fillChar.repeat(GRID_SIZE-2) + '#'); }
+    }
+    return rows;
+  }
+
+  function setCell(rows, x, y, ch){
+    const r = rows[y];
+    rows[y] = r.substring(0,x) + ch + r.substring(x+1);
+  }
+
+  function buildBaseMap(levelIdx){
+    const map = [];
+    for(let y=0;y<GRID_SIZE;y++){
+      const row = [];
+      for(let x=0;x<GRID_SIZE;x++){
+        row.push((x===0||y===0||x===GRID_SIZE-1||y===GRID_SIZE-1) ? TILE.WALL : TILE.FLOOR);
+      }
+      map.push(row);
+    }
+    map[GRID_SIZE-2][GRID_SIZE-2] = TILE.GOAL;
+    const trapSpots = [[4 + (levelIdx % 5), 6],[9, 4 + ((levelIdx*2) % 6)]];
+    trapSpots.forEach(([tx,ty])=>{
+      if(map[ty] && map[ty][tx] === TILE.FLOOR){ map[ty][tx] = TILE.TRAP; }
+    });
+    return map;
+  }
+
+  /* ---- Level 1: The Race ---- */
+  const LEVEL0_CHECKPOINTS = [{x:7,y:6},{x:7,y:9},{x:6,y:7},{x:9,y:7}];
+  function buildLevel0(){
+    return parseMap([
+      "###############",
+      "#.............#",
+      "#.#.###.#####.#",
+      "#.#D###.#####.#",
+      "#.#####.#####.#",
+      "#.#####.#####.#",
+      "#.####....###.#",
+      "#.####.SS.###.#",
+      "#.####.SS.###.#",
+      "#.####....###.#",
+      "#.###########.#",
+      "#.###########.#",
+      "#.###########.#",
+      "#..........G..#",
+      "###############"
+    ]);
+  }
+
+  /* ---- Level 2: The Moon Illusion ---- */
+  function buildLevel1(){
+    return parseMap([
+      "###############",
+      "#......q......#",
+      "#.####.q.####.#",
+      "#.####.q.####.#",
+      "#zzzzzzqzzzzzz#",
+      "#.####.q.####.#",
+      "#.####.q.####.#",
+      "#......q......#",
+      "#.####.q.####.#",
+      "#.####.q.####.#",
+      "#zzzzzz.zzzzzz#",
+      "#.####.q.####.#",
+      "#.####.q.####.#",
+      "#......q.....G#",
+      "###############"
+    ]);
+  }
+
+  /* ---- Level 3: Ekadanta ---- */
+  function buildLevel2(){
+    return parseMap([
+      "###############",
+      "#.#############",
+      "#.####U########",
+      "#.K###.########",
+      "#..###.########",
+      "#..###.########",
+      "#..###.########",
+      "#......W.....G#",
+      "####.##########",
+      "####.##########",
+      "####.##########",
+      "####X##########",
+      "###############",
+      "###############",
+      "###############"
+    ]);
+  }
+
+  /* ---- Level 4: The Snake Belt ---- */
+  function buildLevel3(){
+    return parseMap([
+      "###############",
+      "#.MMMMMMMMMMMM#",
+      "##########R##.#",
+      "##########.##.#",
+      "##########.##.#",
+      "##............#",
+      "##.#.##########",
+      "##.#.##########",
+      "##.#N##########",
+      "##.############",
+      "##.############",
+      "##P############",
+      "##.############",
+      "##G############",
+      "###############"
+    ]);
+  }
+
+  /* ---- Level 5: The River Maker ---- */
+  function buildLevel4(){
+    return parseMap([
+      "###############",
+      "#.............#",
+      "#.#.#########.#",
+      "#.#E#########.#",
+      "#.###########.#",
+      "#.###########.#",
+      "#.####...####.#",
+      "#.####.G.####.#",
+      "#.####...####.#",
+      "#.###########.#",
+      "#.###########.#",
+      "#.#########H#.#",
+      "#.#########.#.#",
+      "#.............#",
+      "###############"
+    ]);
+  }
+
+  const TEMPLATE_A = [
+    "###############",
+    "#.............#",
+    "#.###.#.###.#.#",
+    "#.............#",
+    "#.#.#.#.#.#.#.#",
+    "#.............#",
+    "#.###.#.###.#.#",
+    "#.............#",
+    "#.#.#.#.#.#.#.#",
+    "#.............#",
+    "#.###.#.###.#.#",
+    "#.............#",
+    "#.#.#.#.#.#.#.#",
+    "#.............#",
+    "###############"
+  ];
+
+  /* ---- Level 6: Guard of the Bath (EVASION SPRINT) ---- */
+  function buildLevel5(){
+    const rows = TEMPLATE_A.slice();
+    rows[13] = "#............G#"; 
+    return parseMap(rows);
+  }
+
+  /* ---- Level 7: Kubera's Pride ---- */
+  function buildLevel6(){
+    const rows = TEMPLATE_A.slice();
+    rows[3]  = "#..M.......M..#";
+    rows[9]  = "#........i....#";
+    return parseMap(rows);
+  }
+
+  /* ---- Level 8: The Unstoppable Pen ---- */
+  function buildLevel7(){
+    const rows = TEMPLATE_A.slice();
+    rows[13] = "#............G#";
+    return parseMap(rows);
+  }
+
+  /* ---- Level 9: The Divine Mother ---- */
+  function buildLevel8(){
+    const rows = TEMPLATE_A.slice();
+    rows[7]  = "#......p......#";
+    rows[13] = "#............G#";
+    return parseMap(rows);
+  }
+
+  /* ---- Level 10: The Atma Linga ---- */
+  function buildLevel9(){
+    const rows = TEMPLATE_A.slice();
+    rows[5]  = "#....e........#";
+    rows[9]  = "#..y.........y#";
+    rows[13] = "#............G#";
+    return parseMap(rows);
+  }
+
+  /* ---- Level 11: Demon Mouse ---- */
+  function buildLevel10(){
+    const rows = makeGrid('.');
+    for(let x=5;x<=9;x++){ setCell(rows,x,5,'c'); setCell(rows,x,9,'c'); }
+    for(let y=5;y<=9;y++){ setCell(rows,5,y,'c'); setCell(rows,9,y,'c'); }
+    setCell(rows,7,7,'G');
+    setCell(rows,13,13,'m');
+    return parseMap(rows);
+  }
+
+  /* ---- Level 12: Facing North ---- */
+  function buildLevel11(){
+    const rows = makeGrid('.');
+    for(let y=3;y<12;y+=2){
+      for(let x=2;x<13;x+=2){
+        setCell(rows,x,y,'#');
+      }
+    }
+    setCell(rows,7,1,'h');
+    setCell(rows,13,13,'G');
+    return parseMap(rows);
+  }
+
+  /* ---- Level 13: Tulsi Curse ---- */
+  function buildLevel12(){
+    return parseMap([
+      "###############",
+      "#.t...t.....t.#",
+      "#.t.t.t.ttt.t.#",
+      "#...t.t.t.....#",
+      "#tttt.t.t..tt.#",
+      "#.......t.....#",
+      "#.ttttttt.tttt#",
+      "#.........t...#",
+      "#.ttttttttttt.#",
+      "#.ttt.......t.#",
+      "#.ttt.t...t.t.#",
+      "#.....t...t.t.#",
+      "#tttttttttt.t.#",
+      "#.ttttttttt..G#",
+      "###############"
+    ]);
+  }
+
+  /* ---- Level 14: Fire Demon ---- */
+  function buildLevel13(){
+    const rows = makeGrid('.');
+    setCell(rows,7,7,'f');
+    let placed = 0;
+    outer:
+    for(let y=1;y<GRID_SIZE-1;y+=2){
+      for(let x=1;x<GRID_SIZE-1;x+=2){
+        if(placed>=21) break outer;
+        if(x===7&&y===7) continue;
+        if(x===1&&y===1) continue;
+        if(x===13&&y===13) continue;
+        setCell(rows,x,y,'d');
+        placed++;
+      }
+    }
+    setCell(rows,13,13,'G');
+    return parseMap(rows);
+  }
+
+  /* ---- Level 15: Riddhi & Siddhi ---- */
+  function buildLevel14(){
+    const rows = makeGrid('.');
+    for(let y=1; y<GRID_SIZE-1; y++){ setCell(rows,7,y,'#'); }
+    setCell(rows,7,1,'.');
+    setCell(rows,7,13,'.');
+    setCell(rows,7,7,'G');
+    setCell(rows,3,7,'p');
+    setCell(rows,10,3,'T');
+    setCell(rows,12,5,'F');
+    setCell(rows,10,9,'F');
+    setCell(rows,12,11,'T');
+    setCell(rows,11,7,'p');
+    setCell(rows,9,5,'#');
+    setCell(rows,9,9,'#');
+    setCell(rows,11,5,'#');
+    setCell(rows,11,9,'#');
+    return parseMap(rows);
+  }
+
+  /* ---- Level 16: The Golden Deer (NEW) ---- */
+  function buildLevel15(){
+    const rows = makeGrid('.');
+    setCell(rows, 4, 4, '#'); setCell(rows, 5, 4, '#');
+    setCell(rows, 10, 4, '#'); setCell(rows, 9, 4, '#');
+    setCell(rows, 4, 10, '#'); setCell(rows, 5, 10, '#');
+    setCell(rows, 10, 10, '#'); setCell(rows, 9, 10, '#');
+    setCell(rows, 7, 7, 'G');
+    return parseMap(rows);
+  }
+
+  /* ---- Level 17: Hanuman's Leap (NEW) ---- */
+  function buildLevel16(){
+    const rows = makeGrid('W');
+    setCell(rows, 1, 1, '.');
+    setCell(rows, 2, 1, 'E'); // Start Feather
+    setCell(rows, 8, 1, 'E'); // Exactly 6 steps
+    setCell(rows, 8, 7, 'E'); // Exactly 6 steps
+    setCell(rows, 2, 7, 'E'); // Exactly 6 steps
+    setCell(rows, 2, 13, 'E'); // Exactly 6 steps
+    setCell(rows, 8, 13, 'E'); // Exactly 6 steps
+    setCell(rows, 13, 13, 'G'); // Exactly 5 steps
+    return parseMap(rows);
+  }
+
+  /* ---- Level 18: The Poison of Halahala (NEW) ---- */
+  function buildLevel17(){
+    const rows = makeGrid('c'); 
+    for(let y=2; y<13; y+=2){
+       for(let x=2; x<13; x+=2){
+          setCell(rows, x, y, '#');
+       }
+    }
+    setCell(rows, 7, 7, '.');
+    setCell(rows, 6, 7, 'm');
+    setCell(rows, 8, 7, 'f');
+    let placed = 0;
+    for(let y=1; y<14; y+=2){
+      for(let x=1; x<14; x+=2){
+        if(x===7 && y===7) continue;
+        if(placed < 21) { setCell(rows, x, y, 'd'); placed++; }
+      }
+    }
+    setCell(rows, 13, 13, 'G');
+    return parseMap(rows);
+  }
+
+  /* ---- Level 19: The Chakravyuha (NEW) ---- */
+  function buildLevel18(){
+    const rows = makeGrid('.');
+    for(let x=1; x<=13; x++) setCell(rows, x, 13, '#');
+    for(let y=13; y>=3; y--) setCell(rows, 13, y, '#');
+    for(let x=13; x>=3; x--) setCell(rows, x, 3, '#');
+    for(let y=3; y<=11; y++) setCell(rows, 3, y, '#');
+    for(let x=3; x<=11; x++) setCell(rows, x, 11, '#');
+    for(let y=11; y>=5; y--) setCell(rows, 11, y, '#');
+    for(let x=11; x>=5; x--) setCell(rows, x, 5, '#');
+    for(let y=5; y<=9; y++) setCell(rows, 5, y, '#');
+    for(let x=5; x<=9; x++) setCell(rows, x, 9, '#');
+    setCell(rows, 9, 8, '#');
+    setCell(rows, 9, 7, '#');
+    setCell(rows, 8, 7, '#');
+    setCell(rows, 7, 7, 'G');
+    setCell(rows, 1, 13, '.');
+    setCell(rows, 2, 13, '.');
+    setCell(rows, 1, 1, '.'); 
+    return parseMap(rows);
+  }
+
+  /* ---- Level 20: The Cosmic Dance (NEW ARENA) ---- */
+  function buildLevel19(){
+    const rows = makeGrid('.');
+    for(let y=3; y<=11; y+=4){
+      for(let x=3; x<=11; x+=4){
+        setCell(rows, x, y, '#'); setCell(rows, x+1, y, '#');
+        setCell(rows, x, y+1, '#'); setCell(rows, x+1, y+1, '#');
+      }
+    }
+    setCell(rows, 1, 1, 'd');
+    setCell(rows, 13, 1, 'd');
+    setCell(rows, 1, 13, 'd');
+    setCell(rows, 13, 13, 'd');
+    setCell(rows, 7, 7, 'G');
+    return parseMap(rows);
+  }
+
+  const LEVEL_BUILDERS = [
+    buildLevel0, buildLevel1, buildLevel2, buildLevel3, buildLevel4,
+    buildLevel5, buildLevel6, buildLevel7, buildLevel8, buildLevel9,
+    buildLevel10, buildLevel11, buildLevel12, buildLevel13, buildLevel14,
+    buildLevel15, buildLevel16, buildLevel17, buildLevel18, buildLevel19
+  ];
+
+  const LEVEL_START_OVERRIDE = {
+    17: {x:7, y:7},
+    19: {x:7, y:8}
+  };
+
+  const LEVEL_NAMES = [
+    "The Race","The Moon's Illusion","Ekadanta's Bridge","The Snake Belt","The River Maker",
+    "Guard of the Bath","Kubera's Pride","The Unstoppable Pen","The Divine Mother","The Atma Linga",
+    "Demon Mouse","Facing North","Tulsi Curse","Fire Demon","Riddhi & Siddhi",
+    "The Golden Deer", "Hanuman's Leap", "The Poison of Halahala", "The Chakravyuha", "The Cosmic Dance"
+  ];
+
+  const LEVEL_LORE = [
+    "Kartikeya sped to the edges of the world, but the wise son knew his universe was at the center. Do not be tempted by the outer path.",
+    "The arrogant moon mocks your reality. Danger is an illusion, but only on the path of shadows. Trust your steps, not your eyes.",
+    "To write the great epic, he did not seek a golden quill, but sacrificed a piece of himself. Choose the true ivory to bridge the sacred waters.",
+    "A belly too full of sweets cannot pass the narrow gate. Only the serpent king of the forest (Green) can bind the feast, beware the serpents of fire (Red).",
+    "The sage's pot held a river. Take the form of the dark bird to rise above earthly walls. The white dove will only bring your doom.",
+    "The Mother's door is guarded by fierce demons. Evade their pursuit and reach the sanctum.",
+    "A universe of wealth cannot satisfy the greedy, but a single grain of devotion fills the soul. Seek the humble offering.",
+    "The epic halts for no one. Once your pen strikes the parchment, you must not pause, lest the story consume you.",
+    "She resides in all creatures. Strike the feline and feel the Mother's wrath. Gently guide it to safety to pass.",
+    "The ultimate power cannot be carried to the end. Ground it on the true sacred earth, and walk away empty-handed.",
+    "A beast blocks your path, relentless in pursuit. Do not flee — face it, and let devotion tame what fear cannot outrun.",
+    "Your own hands betray your commands. Seek the guardian's head to remember which way is true.",
+    "Sacred leaves carpet this ground, beautiful and merciless. One touch of carelessness ends the journey.",
+    "The flame marks those who linger. Gather the sacred grass swiftly, or be consumed.",
+    "Prosperity and wisdom guard two paths. Only by mastering both — pursuit and illusion — will the center reveal itself.",
+    "Sita is lured away by a beautiful, impossible deer that constantly dances just out of reach, leading Ram into a deadly trap.",
+    "Hanuman must cross the massive ocean to reach Lanka, facing exhaustion and demons trying to pull him down into the depths.",
+    "A deadly poison is released that threatens to destroy the universe. You must consume the fire, mount the mouse, and gather all scattered antidote leaves before time runs out!",
+    "The legendary, inescapable spiral military formation. Once you enter, you cannot stop moving, and the path only gets deadlier.",
+    "Shiva's Tandava shakes the universe. Your mind will twist, demons will hunt you, and the center will constantly shift. Master the chaos."
+  ];
+
+  const LEVEL_QUOTES = [
+    "The body moves, but the mind must move faster. Devotion outruns speed. - The Wisdom of Kartikeya",
+    "The eyes deceive, but the soul knows the way. - The Illusion of Chandra",
+    "What is given freely returns as sacred passage. - The Sacrifice of Vyasa",
+    "Fullness of body is emptiness of spirit; only surrender restores balance. - The Serpent's Teaching",
+    "Wings borrowed in humility carry farther than wings claimed in pride. - The Flight of the Sage",
+    "To guard the threshold is itself an act of creation. - Parvati's Vigil",
+    "The universe fits in a single grain offered with love. - Kubera's Lesson",
+    "The pen that pauses is consumed by its own silence. - Ganesha's Vow",
+    "She who dwells in all creatures forgives the gentle hand. - The Mother's Mercy",
+    "True power is not carried, but released. - The Grounding of the Linga",
+    "Even the wildest beast kneels before quiet courage. - The Taming of Mushika",
+    "When the world turns against you, find the still point within. - Facing North",
+    "Where danger is certain, care becomes devotion itself. - The Field of Tulsi",
+    "The flame that consumes pride is cooled only by humble gathering. - The Fire Demon's Trial",
+    "Wealth and wisdom together open the final door. - Riddhi and Siddhi",
+    "Desire for the impossible is the ultimate trap. - Maricha's Deceit",
+    "Faith alone bridges the impossible ocean. - The Leap of Devotion",
+    "To save the world, one must be willing to consume its poison. - Neelakantha",
+    "Entering the trap is courage; surviving it is mastery. - Abhimanyu's Fall",
+    "In the heart of chaos, find the still point. - The Final Truth"
+  ];
+
+  const DIRECT_HINTS = [
+    "Walk around all four sides of the statue block first - the goal unlocks only after you've fully circled it. Ignore the shiny decoy orb in the dead-end.",
+    "The visible open corridor is fake floor - it's secretly a wall. Walk through the sections that look like solid walls instead. Controls still reverse past the midpoint.",
+    "Grab the true ivory tusk (not the gold pen or wooden stick) then walk into the water - it turns into a walkable bridge while you carry it.",
+    "Eating the modaks along the top corridor is unavoidable and makes you fat. Find the GREEN snake to shrink back down - the RED snake instantly kills you.",
+    "Find the black crow feather (not the white dove decoy), then press ACT near the sealed goal to fly through the walls for 3 seconds.",
+    "Run! Two fast demons are hunting you. Weave through the pillars and race to the golden Modak at the top to win.",
+    "Ignore the modaks and the fleeing goal completely. Search the floor carefully for a tiny camouflaged grain of rice - stepping on it wins instantly.",
+    "Once you start moving you cannot stand still for more than 1 second or you die. Keep tapping a direction as you navigate to the goal.",
+    "Walk directly into the cat to gently push it one tile at a time onto the glowing plate. Never press ACT while next to the cat - that kills you.",
+    "Find the true brown Earth tile (not the darker fake Earth tiles) and press ACT to set the artifact down there, then walk to the goal empty-handed.",
+    "Don't run from the mouse - walk directly into it to tame it. Once mounted, walk into the cracked walls to smash through them and reach the goal.",
+    "Controls are scrambled! Find and touch the brown head to restore normal controls, and evade the 2 fast demons!",
+    "Every green Tulsi leaf is instant death. Move one tile at a time and trace a careful path through the gaps between the leaves toward the goal.",
+    "Stepping on the fire tile starts a 10 second death timer. Collect all 21 green Durva grass blades scattered nearby before time runs out to cool down.",
+    "Trigger the plate on the left side while dodging the fast enemies, then trigger the plate on the right side while navigating reversed controls and fake traps. Both plates unlock the central goal.",
+    "The goal runs away from you, and demons are hunting you! Use the outer walls to corner the fleeing goal.",
+    "Grab the feather and press ACT to fly over the water. You only have 3 seconds per leap! Never stop moving. Chain your flights perfectly across the islands.",
+    "Touching the fire starts a 10-second death timer! Quickly walk into the purple mouse to mount it, smash through cracked walls, and collect all 21 leaves to unlock the goal.",
+    "Do not stop moving for more than 1 second! A demon chases you through the spiral. Some walls are fake and can be walked through.",
+    "Sensory overload! Controls are scrambled and 4 fast demons hunt you. Collect the 4 green sigils in the extreme corners to unlock the center goal."
+  ];
+
+  const LEVEL_COUNT = LEVEL_BUILDERS.length;
+
+  const LEVELS = [];
+  for(let i=0;i<LEVEL_COUNT;i++){
+    LEVELS.push({
+      name: LEVEL_NAMES[i],
+      lore: LEVEL_LORE[i],
+      map: LEVEL_BUILDERS[i] ? LEVEL_BUILDERS[i]() : buildBaseMap(i)
+    });
+  }
+
+  const STANDARD_DIR = {
+    up:{dx:0,dy:-1}, down:{dx:0,dy:1}, left:{dx:-1,dy:0}, right:{dx:1,dy:0}
+  };
+
+  /* ============================================================
+     STATE
+  ============================================================ */
+  const state = {
+    phone: null,
+    isGuest: true,
+    levelIdx: 0,
+    deathsTotal: 0,
+    timeTotal: 0,
+    deathsAct: 0,
+    timeAct: 0,
+    player: {x:1, y:1},
+    started: false,
+    paused: true,
+    timerHandle: null,
+
+    hasTusk: false,
+    hasFeather: false,
+    isFat: false,
+    isFlying: false,
+    flightRemaining: 0,
+    flightInterval: null,
+    raceUnlocked: false,
+    level0Checkpoints: new Set(),
+
+    lastDir: {dx:0, dy:1},
+    enemies: [],
+    enemyInterval: null,
+    fleeGoalPos: null,
+    penMoving: false,
+    penLastMoveTime: null,
+    catPos: null,
+    catPlatePos: null,
+    catUnlocked: false,
+    hasArtifact: false,
+    artifactDropped: false,
+
+    mounted: false,
+    mousePos: null,
+    mouseInterval: null,
+    controlMap: null,
+    headTouched: false,
+    fireActive: false,
+    fireRemaining: 10,
+    durvaCollected: 0,
+    fireCooled: false,
+    riddhiLeftUnlocked: false,
+    riddhiRightUnlocked: false
+  };
+
+  let pendingCompletedLevel = null;
+  const levelIntroShown = new Set();
+  const START_POS = {x:1, y:1};
+
+  /* ============================================================
+     DOM REFS
+  ============================================================ */
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const stage = document.getElementById('stage');
+  const flashOverlay = document.getElementById('flash-overlay');
+
+  const valLevel = document.getElementById('val-level');
+  const valDeaths = document.getElementById('val-deaths');
+  const valTime = document.getElementById('val-time');
+  const valScore = document.getElementById('val-score');
+  const valStatus = document.getElementById('val-status');
+  const profileLabel = document.getElementById('profile-label');
+  const profileChip = document.getElementById('profile-chip');
+  const restartBtn = document.getElementById('restart-btn');
+  const hintBtn = document.getElementById('hint-btn');
+
+  const authOverlay = document.getElementById('auth-overlay');
+  const phoneInput = document.getElementById('phone-input');
+  const authError = document.getElementById('auth-error');
+  const btnLogin = document.getElementById('btn-login');
+  const btnGuest = document.getElementById('btn-guest');
+
+  const rulesOverlay = document.getElementById('rules-overlay');
+  const btnRulesBegin = document.getElementById('btn-rules-begin');
+
+  const introOverlay = document.getElementById('level-intro-overlay');
+  const introLevelTag = document.getElementById('intro-level-tag');
+  const introLevelName = document.getElementById('intro-level-name');
+  const introLore = document.getElementById('intro-lore');
+  const btnIntroEnter = document.getElementById('btn-intro-enter');
+
+  const hintOverlay = document.getElementById('hint-overlay');
+  const hintRiddleText = document.getElementById('hint-riddle-text');
+  const hintDirectText = document.getElementById('hint-direct-text');
+  const btnRevealHint = document.getElementById('btn-reveal-hint');
+  const hintDirectContainer = document.getElementById('hint-direct-container');
+  const btnHintClose = document.getElementById('btn-hint-close');
+
+  const quoteOverlay = document.getElementById('quote-overlay');
+  const quoteText = document.getElementById('quote-text');
+  const btnPonder = document.getElementById('btn-ponder');
+
+  const scorecardOverlay = document.getElementById('scorecard-overlay');
+  const rankDisplay = document.getElementById('rank-display');
+  const scoreVal = document.getElementById('score-val');
+  const scoreTime = document.getElementById('score-time');
+  const scoreDeaths = document.getElementById('score-deaths');
+  const scoreLore = document.getElementById('score-lore');
+  const btnContinue = document.getElementById('btn-continue');
+
+  const endOverlay = document.getElementById('end-overlay');
+  const endTimeEl = document.getElementById('end-time');
+  const endDeathsEl = document.getElementById('end-deaths');
+  const btnEndRestart = document.getElementById('btn-end-restart');
+
+  function anyBlockingOverlayOpen(){
+    return !authOverlay.classList.contains('hidden') ||
+      !rulesOverlay.classList.contains('hidden') ||
+      !introOverlay.classList.contains('hidden') ||
+      !hintOverlay.classList.contains('hidden') ||
+      !quoteOverlay.classList.contains('hidden') ||
+      !scorecardOverlay.classList.contains('hidden') ||
+      !endOverlay.classList.contains('hidden');
+  }
+
+  /* ============================================================
+     STORAGE
+  ============================================================ */
+  function saveKey(phone){ return 'deva_save_' + phone; }
+
+  function loadSave(phone){
+    try{
+      const raw = localStorage.getItem(saveKey(phone));
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(e){ return null; }
+  }
+
+  function persistSave(){
+    if(state.isGuest || !state.phone) return;
+    const data = {
+      levelIdx: state.levelIdx,
+      deathsTotal: state.deathsTotal,
+      timeTotal: state.timeTotal
+    };
+    try{
+      localStorage.setItem(saveKey(state.phone), JSON.stringify(data));
+    }catch(e){ /* storage unavailable */ }
+  }
+
+  /* ============================================================
+     TIMER
+  ============================================================ */
+  function startTimer(){
+    stopTimer();
+    state.timerHandle = setInterval(()=>{
+      if(state.paused) return;
+      state.timeTotal += 1;
+      state.timeAct += 1;
+
+      if((state.levelIdx===7 || state.levelIdx===18) && state.penMoving && state.penLastMoveTime!==null){
+        if(Date.now() - state.penLastMoveTime >= 1000){
+          state.penMoving = false;
+          handleTrap();
+        }
+      }
+
+      if((state.levelIdx===13 || state.levelIdx===17) && state.fireActive){
+        state.fireRemaining -= 1;
+        if(state.fireRemaining <= 0){
+          state.fireActive = false;
+          handleTrap();
+        }
+      }
+
+      updateHUD();
+    }, 1000);
+  }
+  function stopTimer(){
+    if(state.timerHandle){
+      clearInterval(state.timerHandle);
+      state.timerHandle = null;
+    }
+  }
+
+  /* ============================================================
+     HUD
+  ============================================================ */
+  function formatTime(sec){
+    const m = Math.floor(sec/60).toString().padStart(2,'0');
+    const s = Math.floor(sec%60).toString().padStart(2,'0');
+    return m+':'+s;
+  }
+
+  function computeLiveScore(){
+    const actScore = Math.max(0, 1000 - (state.timeAct * 5) - (state.deathsAct * 50));
+    return (state.levelIdx * 1000) + actScore;
+  }
+
+  function updateHUD(){
+    valLevel.textContent = (state.levelIdx+1);
+    valDeaths.textContent = state.deathsTotal;
+    valTime.textContent = formatTime(state.timeTotal);
+    valScore.textContent = computeLiveScore();
+    profileLabel.textContent = state.isGuest ? 'Guest' : state.phone;
+
+    const tags = [];
+    if(state.hasTusk) tags.push('Tusk');
+    if(state.hasFeather) tags.push(state.isFlying ? `Flying ${state.flightRemaining}s` : 'Feather');
+    if(state.isFat) tags.push('Fat');
+    if(state.levelIdx===1 && state.player.x>7) tags.push('Reversed');
+    if(state.levelIdx===7 || state.levelIdx===18) tags.push(state.penMoving ? 'Keep Moving!' : 'Move to Begin');
+    if(state.levelIdx===8) tags.push(state.catUnlocked ? 'Cat Settled' : 'Guide the Cat');
+    if(state.levelIdx===9) tags.push(state.hasArtifact ? 'Carrying Artifact' : 'Empty-Handed');
+    if([10, 17].includes(state.levelIdx)) tags.push(state.mounted ? 'Mounted' : 'Mouse Chasing');
+    if(state.levelIdx===11 || state.levelIdx===19) tags.push(state.headTouched ? 'Controls Restored' : 'Controls Scrambled');
+    if(state.levelIdx===12) tags.push('Tulsi Field');
+    if(state.levelIdx===13 || state.levelIdx===17) tags.push(state.fireActive ? `Burning ${Math.max(0,state.fireRemaining)}s` : (state.fireCooled ? 'Cooled' : 'Find the Flame'));
+    if(state.levelIdx===14) tags.push(`L:${state.riddhiLeftUnlocked?'OK':'...'} R:${state.riddhiRightUnlocked?'OK':'...'}`);
+    if(state.levelIdx===19) tags.push(`Sigils: ${state.durvaCollected}/4`);
+    valStatus.textContent = tags.length ? tags.join(', ') : '-';
+  }
+
+  /* ============================================================
+     CANVAS SIZING
+  ============================================================ */
+  let cellSize = 0;
+
+  function resizeCanvas(){
+    const stageRect = stage.getBoundingClientRect();
+    const availW = stageRect.width - 20;
+    const availH = stageRect.height - 20;
+    const size = Math.floor(Math.min(availW, availH));
+    canvas.width = size;
+    canvas.height = size;
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    cellSize = size / GRID_SIZE;
+    render();
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', ()=> setTimeout(resizeCanvas, 200));
+
+  /* ============================================================
+     GAME LOGIC
+  ============================================================ */
+  function currentMap(){
+    return LEVELS[state.levelIdx].map;
+  }
+
+  function tileAt(x,y){
+    const map = currentMap();
+    if(y<0||y>=GRID_SIZE||x<0||x>=GRID_SIZE) return TILE.WALL;
+    return map[y][x];
+  }
+
+  function extractSingleTile(tileType, mapObj){
+    for(let y=0;y<GRID_SIZE;y++){
+      for(let x=0;x<GRID_SIZE;x++){
+        if(mapObj[y][x]===tileType){
+          mapObj[y][x] = TILE.FLOOR;
+          return {x,y};
+        }
+      }
+    }
+    return null;
+  }
+
+  function shuffleControls(){
+    const vecs = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
+    for(let i=vecs.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [vecs[i],vecs[j]] = [vecs[j],vecs[i]];
+    }
+    const dirNames = ['up','down','left','right'];
+    const map = {};
+    dirNames.forEach((name,i)=> map[name]=vecs[i]);
+    return map;
+  }
+
+  function resetPuzzleState(){
+    state.hasTusk = false;
+    state.hasFeather = false;
+    state.isFat = false;
+    state.isFlying = false;
+    state.flightRemaining = 0;
+    state.raceUnlocked = false;
+    state.level0Checkpoints = new Set();
+    if(state.flightInterval){ clearInterval(state.flightInterval); state.flightInterval = null; }
+
+    if(state.enemyInterval){ clearInterval(state.enemyInterval); state.enemyInterval = null; }
+    state.enemies = [];
+    state.lastDir = {dx:0, dy:1};
+    state.fleeGoalPos = null;
+    state.penMoving = false;
+    state.penLastMoveTime = null;
+    state.catPos = null;
+    state.catPlatePos = null;
+    state.catUnlocked = false;
+    state.hasArtifact = false;
+    state.artifactDropped = false;
+
+    if(state.mouseInterval){ clearInterval(state.mouseInterval); state.mouseInterval = null; }
+    state.mounted = false;
+    state.mousePos = null;
+    state.controlMap = null;
+    state.headTouched = false;
+    state.fireActive = false;
+    state.fireRemaining = 10;
+    state.durvaCollected = 0;
+    state.fireCooled = false;
+    state.riddhiLeftUnlocked = false;
+    state.riddhiRightUnlocked = false;
+  }
+
+  function loadLevel(idx){
+    state.levelIdx = idx;
+    if(LEVEL_BUILDERS[idx]){
+      LEVELS[idx].map = LEVEL_BUILDERS[idx](); 
+    }
+    resetPuzzleState();
+
+    if(idx===5){
+      state.enemies = [{x:13,y:1},{x:1,y:13}];
+      state.enemyInterval = setInterval(stepEnemies, 400);
+    }
+    if([6, 15].includes(idx)){
+      let gp = extractSingleTile(TILE.GOAL, LEVELS[idx].map);
+      if(!gp) gp = {x:7, y:7};
+      LEVELS[idx].map[gp.y][gp.x] = TILE.GOAL;
+      state.fleeGoalPos = gp;
+    }
+    if(idx===8){
+      state.catPos = {x:3,y:3};
+      state.catPlatePos = {x:7,y:7};
+    }
+    if(idx===9){
+      state.hasArtifact = true;
+    }
+    if([10, 17].includes(idx)){
+      const pos = extractSingleTile(TILE.MOUSE, LEVELS[idx].map) || {x:13,y:13};
+      state.mousePos = pos;
+      state.mounted = false;
+      state.mouseInterval = setInterval(stepMouse, 1000);
+    }
+    if(idx===11){
+      state.controlMap = shuffleControls();
+      state.headTouched = false;
+      state.enemies = [{x:1,y:13},{x:13,y:1}];
+      state.enemyInterval = setInterval(stepEnemies, 500);
+    }
+    if([13, 17].includes(idx)){
+      state.fireActive = false;
+      state.fireRemaining = 10;
+      state.durvaCollected = 0;
+      state.fireCooled = false;
+    }
+    if(idx===14){
+      state.enemies = [{x:1,y:13},{x:5,y:1}];
+      state.enemyInterval = setInterval(stepEnemies, 500);
+      state.riddhiLeftUnlocked = false;
+      state.riddhiRightUnlocked = false;
+    }
+    if(idx===15){
+      state.enemies = [{x:1,y:13},{x:13,y:1}];
+      state.enemyInterval = setInterval(stepEnemies, 500);
+    }
+    if(idx===18){
+      state.enemies = [{x:1,y:13}];
+      state.enemyInterval = setInterval(stepEnemies, 450);
+    }
+    if(idx===19){
+      state.controlMap = shuffleControls();
+      state.headTouched = false;
+      state.durvaCollected = 0;
+      state.enemies = [{x:7,y:1}, {x:1,y:7}, {x:13,y:7}, {x:7,y:13}];
+      state.enemyInterval = setInterval(stepEnemies, 450);
+    }
+
+    const override = LEVEL_START_OVERRIDE[idx];
+    state.player = override ? {x:override.x, y:override.y} : {x:START_POS.x, y:START_POS.y};
+
+    updateHUD();
+    render();
+  }
+
+  function enterLevel(idx){
+    loadLevel(idx);
+    state.paused = true;
+    if(!levelIntroShown.has(idx)){
+      levelIntroShown.add(idx);
+      introLevelTag.textContent = 'LEVEL ' + (idx+1);
+      introLevelName.textContent = LEVELS[idx].name;
+      introLore.textContent = LEVELS[idx].lore;
+      introOverlay.classList.remove('hidden');
+    } else {
+      state.paused = false;
+    }
+  }
+
+  btnIntroEnter.addEventListener('click', ()=>{
+    introOverlay.classList.add('hidden');
+    state.paused = false;
+  });
+
+  /* ============================================================
+     RESTART / HINT BUTTONS
+  ============================================================ */
+  restartBtn.addEventListener('click', ()=>{
+    if(!state.started || anyBlockingOverlayOpen()) return;
+    handleTrap(); 
+  });
+
+  hintBtn.addEventListener('click', ()=>{
+    if(!state.started) return;
+    if(!introOverlay.classList.contains('hidden') ||
+       !quoteOverlay.classList.contains('hidden') ||
+       !scorecardOverlay.classList.contains('hidden') ||
+       !endOverlay.classList.contains('hidden')){
+      return;
+    }
+    state.paused = true;
+    hintRiddleText.textContent = LEVELS[state.levelIdx].lore;
+    hintDirectText.textContent = DIRECT_HINTS[state.levelIdx] || 'Explore carefully and trust the riddle.';
+    
+    hintDirectContainer.classList.add('hidden');
+    btnRevealHint.classList.remove('hidden');
+    
+    hintOverlay.classList.remove('hidden');
+  });
+
+  btnRevealHint.addEventListener('click', ()=>{
+    btnRevealHint.classList.add('hidden');
+    hintDirectContainer.classList.remove('hidden');
+  });
+
+  btnHintClose.addEventListener('click', ()=>{
+    hintOverlay.classList.add('hidden');
+    if(state.started && !anyBlockingOverlayOpen()){
+      state.paused = false;
+    }
+  });
+
+  function checkLevel0Checkpoints(){
+    LEVEL0_CHECKPOINTS.forEach((cp, i)=>{
+      if(state.player.x===cp.x && state.player.y===cp.y){
+        state.level0Checkpoints.add(i);
+      }
+    });
+    if(state.level0Checkpoints.size >= 4){
+      state.raceUnlocked = true;
+    }
+  }
+
+  function stepFleeGoal(){
+    const gp = state.fleeGoalPos;
+    if(!gp) return;
+    const dist = Math.abs(gp.x-state.player.x)+Math.abs(gp.y-state.player.y);
+    if(dist>2) return;
+    const ddx = Math.sign(gp.x-state.player.x) || (Math.random()<0.5?-1:1);
+    const ddy = Math.sign(gp.y-state.player.y) || (Math.random()<0.5?-1:1);
+    const candidates = [
+      {x:gp.x+ddx, y:gp.y},
+      {x:gp.x, y:gp.y+ddy},
+      {x:gp.x+ddx, y:gp.y+ddy}
+    ];
+    for(const c of candidates){
+      if(c.x>0 && c.y>0 && c.x<GRID_SIZE-1 && c.y<GRID_SIZE-1 && tileAt(c.x,c.y)!==TILE.WALL){
+        state.fleeGoalPos = {x:c.x, y:c.y};
+        break;
+      }
+    }
+  }
+
+  function stepEnemies(){
+    if(state.paused || !state.started) return;
+    const hasDemons = [5, 11, 14, 15, 18, 19].includes(state.levelIdx);
+    if(!hasDemons) return;
+
+    state.enemies.forEach(en=>{
+      const distX = Math.abs(state.player.x-en.x);
+      const distY = Math.abs(state.player.y-en.y);
+      const ddx = Math.sign(state.player.x - en.x);
+      const ddy = Math.sign(state.player.y - en.y);
+      let tx = en.x, ty = en.y;
+
+      if (distX >= distY && ddx !== 0) {
+        if (tileAt(en.x + ddx, en.y) !== TILE.WALL && tileAt(en.x + ddx, en.y) !== TILE.FAKE_WALL) {
+          tx = en.x + ddx;
+        } else if (ddy !== 0 && tileAt(en.x, en.y + ddy) !== TILE.WALL && tileAt(en.x, en.y + ddy) !== TILE.FAKE_WALL) {
+          ty = en.y + ddy;
+        }
+      } else if (ddy !== 0) {
+        if (tileAt(en.x, en.y + ddy) !== TILE.WALL && tileAt(en.x, en.y + ddy) !== TILE.FAKE_WALL) {
+          ty = en.y + ddy;
+        } else if (ddx !== 0 && tileAt(en.x + ddx, en.y) !== TILE.WALL && tileAt(en.x + ddx, en.y) !== TILE.FAKE_WALL) {
+          tx = en.x + ddx;
+        }
+      }
+
+      en.x = tx; en.y = ty;
+    });
+
+    const hit = state.enemies.some(en => en.x===state.player.x && en.y===state.player.y);
+    if(hit){ handleTrap(); }
+    
+    render();
+  }
+
+  function stepMouse(){
+    if(state.paused || !state.started) return;
+    if(![10, 17].includes(state.levelIdx)) return;
+    if(state.mounted || !state.mousePos) return;
+    const en = state.mousePos;
+    const ddx = Math.sign(state.player.x - en.x);
+    const ddy = Math.sign(state.player.y - en.y);
+    const distX = Math.abs(state.player.x-en.x), distY = Math.abs(state.player.y-en.y);
+    if(distX >= distY && ddx!==0){ en.x += ddx; }
+    else if(ddy!==0){ en.y += ddy; }
+    else if(ddx!==0){ en.x += ddx; }
+    if(en.x===state.player.x && en.y===state.player.y){
+      handleTrap();
+    }
+    render();
+  }
+
+  function movePlayer(dirName){
+    if(state.paused || !state.started) return;
+
+    let vec = STANDARD_DIR[dirName];
+    if([11, 19].includes(state.levelIdx) && !state.headTouched && state.controlMap){
+      vec = state.controlMap[dirName];
+    }
+    let dx = vec.dx, dy = vec.dy;
+    state.lastDir = {dx, dy};
+
+    if((state.levelIdx===1 || state.levelIdx===14) && state.player.x>7){
+      dx = -dx; dy = -dy;
+    }
+
+    const nx = state.player.x + dx;
+    const ny = state.player.y + dy;
+    let tile = tileAt(nx, ny);
+    const isBorder = (nx<=0 || ny<=0 || nx>=GRID_SIZE-1 || ny>=GRID_SIZE-1);
+
+    if([10, 17].includes(state.levelIdx) && state.mousePos && nx===state.mousePos.x && ny===state.mousePos.y && !state.mounted){
+      state.mounted = true;
+      state.mousePos = null;
+      if(state.mouseInterval){ clearInterval(state.mouseInterval); state.mouseInterval = null; }
+      state.player.x = nx; state.player.y = ny;
+      updateHUD(); render();
+      return;
+    }
+
+    if(state.levelIdx===8 && state.catPos && nx===state.catPos.x && ny===state.catPos.y){
+      const pushX = state.catPos.x+dx, pushY = state.catPos.y+dy;
+      const pushBorder = (pushX<=0||pushY<=0||pushX>=GRID_SIZE-1||pushY>=GRID_SIZE-1);
+      const pushTile = tileAt(pushX,pushY);
+      if(pushBorder || pushTile===TILE.WALL){
+        return;
+      }
+      state.catPos = {x:pushX, y:pushY};
+      if(state.catPlatePos && pushX===state.catPlatePos.x && pushY===state.catPlatePos.y){
+        state.catUnlocked = true;
+      }
+      state.player.x = nx; state.player.y = ny;
+      updateHUD(); render();
+      return;
+    }
+
+    if(tile === TILE.WALL){
+      if(!(state.isFlying && !isBorder)) return;
+    }
+
+    if(tile === TILE.FAKE_WALL){
+      tile = TILE.FLOOR;
+    }
+
+    if(tile === TILE.FAKE_FLOOR){
+      return;
+    }
+
+    if(tile === TILE.CRACKED_WALL){
+      if(state.mounted){
+        currentMap()[ny][nx] = TILE.FLOOR;
+        tile = TILE.FLOOR;
+      } else {
+        handleTrap();
+        return;
+      }
+    }
+
+    if(tile === TILE.STATUE) return;
+
+    if(tile === TILE.GOAL){
+      if(state.levelIdx===6) return;
+      if(state.levelIdx===0 && !state.raceUnlocked) return;
+      if(state.levelIdx===8 && !state.catUnlocked) return;
+      if(state.levelIdx===9 && state.hasArtifact) return;
+      if(state.levelIdx===13 && !state.fireCooled) return;
+      if(state.levelIdx===14 && !(state.riddhiLeftUnlocked && state.riddhiRightUnlocked)) return;
+      if(state.levelIdx===17 && !state.fireCooled) return;
+      if(state.levelIdx===19 && state.durvaCollected < 4) return;
+    }
+
+    if(tile === TILE.NARROW_GAP && state.isFat) return;
+
+    if(tile === TILE.WATER){
+      if(state.hasTusk){
+        currentMap()[ny][nx] = TILE.FLOOR;
+        tile = TILE.FLOOR;
+      } else if(state.isFlying){
+        // Flight permitted over ocean
+      } else {
+        return;
+      }
+    }
+
+    state.player.x = nx;
+    state.player.y = ny;
+
+    if(tile === TILE.TUSK){ state.hasTusk = true; currentMap()[ny][nx] = TILE.FLOOR; }
+    if(tile === TILE.FEATHER){ state.hasFeather = true; currentMap()[ny][nx] = TILE.FLOOR; }
+    if(tile === TILE.SNAKE){ state.isFat = false; currentMap()[ny][nx] = TILE.FLOOR; }
+    if(tile === TILE.MODAK){ state.isFat = true; currentMap()[ny][nx] = TILE.FLOOR; }
+    if(tile === TILE.HEAD){ state.headTouched = true; currentMap()[ny][nx] = TILE.FLOOR; }
+    
+    if(tile === TILE.FIRE && !state.fireActive){
+      state.fireActive = true;
+      state.fireRemaining = 10;
+      state.durvaCollected = 0;
+      currentMap()[ny][nx] = TILE.FLOOR;
+    }
+
+    if(tile === TILE.DURVA){
+      state.durvaCollected += 1;
+      currentMap()[ny][nx] = TILE.FLOOR;
+      if(state.durvaCollected >= 21 && state.fireActive){
+        state.fireActive = false;
+        state.fireCooled = true;
+      }
+    }
+
+    if(tile === TILE.PLATE && state.levelIdx===14){
+      if(state.player.x < 7){ state.riddhiLeftUnlocked = true; }
+      else { state.riddhiRightUnlocked = true; }
+    }
+
+    if(state.levelIdx === 0){ checkLevel0Checkpoints(); }
+    if([6, 15].includes(state.levelIdx)){ stepFleeGoal(); }
+    if([7, 18].includes(state.levelIdx)){ state.penMoving = true; state.penLastMoveTime = Date.now(); }
+
+    if(tile === TILE.RICE && state.levelIdx===6){
+      handleGoal();
+      return;
+    }
+    if([15].includes(state.levelIdx) && state.fleeGoalPos && nx === state.fleeGoalPos.x && ny === state.fleeGoalPos.y){
+      handleGoal();
+      return;
+    }
+
+    if(tile === TILE.TRAP || tile === TILE.TULSI || DECOY_TILES.has(tile)){
+      handleTrap();
+      return;
+    }
+
+    if(tile === TILE.GOAL){
+      handleGoal();
+      return;
+    }
+
+    updateHUD();
+    render();
+  }
+
+  function triggerAction(){
+    if(state.paused || !state.started) return;
+
+    if(state.levelIdx===9 && state.hasArtifact){
+      const curTile = tileAt(state.player.x, state.player.y);
+      if(curTile === TILE.EARTH){
+        state.hasArtifact = false;
+        state.artifactDropped = true;
+        updateHUD();
+        render();
+      } else if(curTile === TILE.FAKE_EARTH){
+        handleTrap();
+      }
+      return;
+    }
+
+    if(state.levelIdx===8 && state.catPos){
+      const dist = Math.abs(state.player.x-state.catPos.x)+Math.abs(state.player.y-state.catPos.y);
+      if(dist<=1){
+        handleTrap();
+      }
+      return;
+    }
+
+    if(state.levelIdx===4 && state.hasFeather && !state.isFlying){
+      startFlight();
+    }
+    if(state.levelIdx===16 && state.hasFeather){
+      startFlight();
+      state.hasFeather = false;
+    }
+  }
+
+  function startFlight(){
+    state.isFlying = true;
+    state.flightRemaining = 3;
+    if(state.flightInterval) clearInterval(state.flightInterval);
+    state.flightInterval = setInterval(()=>{
+      state.flightRemaining -= 1;
+      if(state.flightRemaining <= 0){
+        state.isFlying = false;
+        clearInterval(state.flightInterval);
+        state.flightInterval = null;
+        if(tileAt(state.player.x, state.player.y) === TILE.WATER && !state.hasTusk){
+          handleTrap();
+          return;
+        }
+      }
+      updateHUD();
+      render();
+    }, 1000);
+    updateHUD();
+    render();
+  }
+
+  function handleTrap(){
+    state.deathsTotal += 1;
+    state.deathsAct += 1;
+    flashRed();
+    loadLevel(state.levelIdx); 
+  }
+
+  function flashRed(){
+    flashOverlay.classList.add('active');
+    setTimeout(()=>{
+      flashOverlay.classList.remove('active');
+    }, 140);
+  }
+
+  function handleGoal(){
+    render();
+    const completedLevelNumber = state.levelIdx + 1;
+    persistSave();
+    showQuoteOverlay(completedLevelNumber);
+  }
+
+  function advanceLevel(){
+    const next = state.levelIdx + 1;
+    if(next >= LEVELS.length){
+      enterLevel(0);
+    } else {
+      enterLevel(next);
+    }
+    persistSave();
+  }
+
+  /* ============================================================
+     QUOTE OVERLAY
+  ============================================================ */
+  function showQuoteOverlay(completedLevelNumber){
+    state.paused = true;
+    pendingCompletedLevel = completedLevelNumber;
+    quoteText.textContent = LEVEL_QUOTES[state.levelIdx] || "The maze remembers.";
+    quoteOverlay.classList.remove('hidden');
+  }
+
+  btnPonder.addEventListener('click', ()=>{
+    quoteOverlay.classList.add('hidden');
+    const completedLevelNumber = pendingCompletedLevel;
+    pendingCompletedLevel = null;
+
+    if(completedLevelNumber === LEVELS.length){
+      showEnd();
+    } else if(completedLevelNumber % 5 === 0){
+      showScorecard(completedLevelNumber);
+    } else {
+      advanceLevel();
+    }
+  });
+
+  /* ============================================================
+     SCORECARD
+  ============================================================ */
+  function computeRank(score, deaths){
+    if(score > 4000 && deaths === 0) return 'S';
+    if(score > 3000) return 'A';
+    if(score > 1500) return 'B';
+    return 'C';
+  }
+
+  function showScorecard(completedLevelNumber){
+    state.paused = true;
+
+    const rawScore = 5000 - (state.timeAct * 5) - (state.deathsAct * 150);
+    const score = Math.max(0, rawScore);
+    const rank = computeRank(score, state.deathsAct);
+
+    rankDisplay.textContent = rank;
+    rankDisplay.className = 'rank-badge rank-' + rank;
+    scoreVal.textContent = score;
+    scoreTime.textContent = formatTime(state.timeAct);
+    scoreDeaths.textContent = state.deathsAct;
+
+    const loreLevel = LEVELS[Math.min(completedLevelNumber-1, LEVELS.length-1)];
+    scoreLore.textContent = '"' + loreLevel.lore + '"';
+
+    scorecardOverlay.classList.remove('hidden');
+  }
+
+  btnContinue.addEventListener('click', ()=>{
+    scorecardOverlay.classList.add('hidden');
+    state.deathsAct = 0;
+    state.timeAct = 0;
+    advanceLevel();
+  });
+
+  /* ============================================================
+     GRAND FINALE
+  ============================================================ */
+  function showEnd(){
+    state.paused = true;
+    endTimeEl.textContent = formatTime(state.timeTotal);
+    endDeathsEl.textContent = state.deathsTotal;
+    endOverlay.classList.remove('hidden');
+  }
+
+  btnEndRestart.addEventListener('click', ()=>{
+    location.reload();
+  });
+
+  /* ============================================================
+     RENDER — vector shapes, no emoji
+  ============================================================ */
+  function render(){
+    if(!cellSize) return;
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+
+    const map = currentMap();
+    const now = performance.now();
+    const pulse = (Math.sin(now / 350) + 1) / 2;
+    const softPulse = (Math.sin(now / 480) + 1) / 2;
+    const camoAlpha = 0.2 + ((Math.sin(now / 500) + 1) / 2) * 0.3;
+
+    for(let y=0;y<GRID_SIZE;y++){
+      for(let x=0;x<GRID_SIZE;x++){
+        const tile = map[y][x];
+        const px = x*cellSize;
+        const py = y*cellSize;
+
+        if(tile === TILE.WALL || tile === TILE.FAKE_WALL){
+          drawWallTile(px, py);
+        } else if(tile === TILE.CRACKED_WALL){
+          drawCrackedWallTile(px, py);
+        } else {
+          ctx.fillStyle = '#0c0c10';
+          ctx.fillRect(px,py,cellSize,cellSize);
+        }
+
+        switch(tile){
+          case TILE.GOAL:
+            if(state.levelIdx===9 && state.hasArtifact){
+              drawSealedGoal(px,py,now);
+            } else if ([6, 15].includes(state.levelIdx)) {
+              // Fleeing goals are drawn dynamically
+            } else if (state.levelIdx===19 && state.durvaCollected < 4) {
+              drawSealedGoal(px,py,now); // Sigil seal
+            } else {
+              drawGoalModak(px,py,pulse);
+            }
+            break;
+          case TILE.TRAP:
+            drawGlowTile(px,py,COLORS.TRAP,0.6);
+            break;
+          case TILE.FAKE_TRAP:
+            drawGlowTile(px,py,COLORS.FAKE_TRAP,0.32);
+            break;
+          case TILE.STATUE:
+            drawStatue(px,py);
+            break;
+          case TILE.TUSK:
+            drawTuskShape(px,py,COLORS.TUSK,0.9);
+            break;
+          case TILE.DECOY_PEN:
+            drawDecoyPen(px,py,softPulse);
+            break;
+          case TILE.DECOY_STICK:
+            drawDecoyStick(px,py);
+            break;
+          case TILE.WATER:
+            drawWaterTile(px,py,now);
+            break;
+          case TILE.SNAKE:
+            drawSnakeShape(px,py,COLORS.SNAKE_TRUE,0.9);
+            break;
+          case TILE.DECOY_SNAKE:
+            drawSnakeShape(px,py,COLORS.SNAKE_DECOY,0.95);
+            break;
+          case TILE.FEATHER:
+            drawFeatherShape(px,py,COLORS.FEATHER_TRUE_FILL,COLORS.FEATHER_TRUE_GLOW,0.9);
+            break;
+          case TILE.DECOY_FEATHER:
+            drawFeatherShape(px,py,COLORS.FEATHER_DECOY,'#ffffff',0.95);
+            break;
+          case TILE.DECOY_GENERIC:
+            drawDecoyOrb(px,py,softPulse);
+            break;
+          case TILE.MODAK:
+            drawSmallModak(px,py);
+            break;
+          case TILE.NARROW_GAP:
+            drawGap(px,py);
+            break;
+          case TILE.PLATE:
+            drawPlate(px,py,softPulse);
+            break;
+          case TILE.EARTH:
+            drawEarth(px,py,COLORS.EARTH,0.85);
+            break;
+          case TILE.FAKE_EARTH:
+            drawEarth(px,py,COLORS.EARTH_DECOY,0.4);
+            break;
+          case TILE.RICE:
+            drawRice(px,py,camoAlpha);
+            break;
+          case TILE.HEAD:
+            drawHeadShape(px,py);
+            break;
+          case TILE.TULSI:
+            drawTulsiLeaf(px,py);
+            break;
+          case TILE.FIRE:
+            drawFireTile(px,py,now);
+            break;
+          case TILE.DURVA:
+            drawDurvaBlades(px,py);
+            break;
+        }
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(31,242,255,0.05)';
+    ctx.lineWidth = 1;
+    for(let i=0;i<=GRID_SIZE;i++){
+      ctx.beginPath();
+      ctx.moveTo(i*cellSize, 0);
+      ctx.lineTo(i*cellSize, canvas.height);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i*cellSize);
+      ctx.lineTo(canvas.width, i*cellSize);
+      ctx.stroke();
+    }
+    
+    if([5, 11, 14, 15, 18, 19].includes(state.levelIdx)){
+      state.enemies.forEach(en => drawEnemy(en.x*cellSize, en.y*cellSize, now));
+    }
+    
+    if([6, 15].includes(state.levelIdx) && state.fleeGoalPos){
+      drawGoalModak(state.fleeGoalPos.x*cellSize, state.fleeGoalPos.y*cellSize, pulse);
+    }
+    if(state.levelIdx===8 && state.catPos){
+      drawCat(state.catPos.x*cellSize, state.catPos.y*cellSize, now);
+    }
+    if([10, 17].includes(state.levelIdx) && state.mousePos){
+      drawMouseBeast(state.mousePos.x*cellSize, state.mousePos.y*cellSize, now);
+    }
+
+    drawPlayer();
+
+    if(state.levelIdx===0){
+      drawEasterEgg();
+    }
+  }
+
+  function drawEasterEgg(){
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; 
+    ctx.font = 'bold 12px sans-serif'; 
+    ctx.textAlign = 'center';
+    ctx.fillText('Circle = Shiva & Parvati', canvas.width / 2, canvas.height - 12); 
+    ctx.restore();
+  }
+
+  function drawWallTile(px,py){
+    ctx.fillStyle = COLORS.WALL_FILL;
+    ctx.fillRect(px,py,cellSize,cellSize);
+
+    ctx.strokeStyle = COLORS.WALL_STROKE;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px+0.5,py+0.5,cellSize-1,cellSize-1);
+
+    ctx.save();
+    const pad = Math.max(2, cellSize*0.12);
+    ctx.strokeStyle = 'rgba(255,47,214,0.55)';
+    ctx.shadowColor = 'rgba(255,47,214,0.6)';
+    ctx.shadowBlur = cellSize*0.35;
+    ctx.lineWidth = Math.max(1, cellSize*0.05);
+    ctx.strokeRect(px+pad, py+pad, cellSize-pad*2, cellSize-pad*2);
+    ctx.restore();
+  }
+
+  function drawCrackedWallTile(px,py){
+    ctx.fillStyle = COLORS.WALL_FILL;
+    ctx.fillRect(px,py,cellSize,cellSize);
+    ctx.save();
+    ctx.strokeStyle = COLORS.CRACK;
+    ctx.shadowColor = COLORS.CRACK;
+    ctx.shadowBlur = cellSize*0.45;
+    ctx.lineWidth = Math.max(1, cellSize*0.06);
+    ctx.beginPath();
+    ctx.moveTo(px+cellSize*0.2, py+cellSize*0.08);
+    ctx.lineTo(px+cellSize*0.52, py+cellSize*0.45);
+    ctx.lineTo(px+cellSize*0.3, py+cellSize*0.55);
+    ctx.lineTo(px+cellSize*0.72, py+cellSize*0.92);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawModakPath(cx,cy,r){
+    ctx.beginPath();
+    ctx.moveTo(cx-r, cy+r*0.3);
+    ctx.quadraticCurveTo(cx-r, cy-r*0.6, cx, cy-r*1.3);
+    ctx.quadraticCurveTo(cx+r, cy-r*0.6, cx+r, cy+r*0.3);
+    ctx.arc(cx, cy+r*0.3, r, 0, Math.PI, false);
+    ctx.closePath();
+  }
+
+  function drawGoalModak(px,py,pulse){
+    const cx = px+cellSize/2, cy = py+cellSize/2 + cellSize*0.08;
+    const r = cellSize * (0.24 + pulse*0.05);
+    ctx.save();
+    ctx.fillStyle = COLORS.GOAL;
+    ctx.shadowColor = COLORS.GOAL;
+    ctx.shadowBlur = cellSize * (0.7 + pulse*0.7);
+    drawModakPath(cx,cy,r);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = Math.max(1, cellSize*0.03);
+    drawModakPath(cx,cy,r);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSmallModak(px,py){
+    const cx = px+cellSize/2, cy = py+cellSize/2 + cellSize*0.05;
+    const r = cellSize*0.17;
+    ctx.save();
+    ctx.fillStyle = COLORS.MODAK;
+    ctx.shadowColor = COLORS.MODAK;
+    ctx.shadowBlur = cellSize*0.4;
+    drawModakPath(cx,cy,r);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSealedGoal(px,py,now){
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    drawGoalModak(px,py,0.3);
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = COLORS.LASER;
+    ctx.shadowColor = COLORS.LASER;
+    const flicker = 0.6 + ((Math.sin(now/150)+1)/2)*0.4;
+    ctx.globalAlpha = flicker;
+    ctx.shadowBlur = cellSize*0.6;
+    ctx.lineWidth = Math.max(1, cellSize*0.06);
+    for(let i=1;i<=3;i++){
+      const yLine = py + (cellSize/4)*i;
+      ctx.beginPath();
+      ctx.moveTo(px+cellSize*0.1, yLine);
+      ctx.lineTo(px+cellSize*0.9, yLine);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawStatue(px,py){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const orbR = cellSize*0.16;
+    const offset = cellSize*0.17;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,210,90,0.8)';
+    ctx.shadowColor = COLORS.STATUE_HALO;
+    ctx.shadowBlur = cellSize*0.7;
+    ctx.lineWidth = Math.max(1, cellSize*0.05);
+    ctx.beginPath();
+    ctx.arc(cx, cy, cellSize*0.36, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = COLORS.STATUE_BLUE;
+    ctx.shadowColor = COLORS.STATUE_BLUE;
+    ctx.shadowBlur = cellSize*0.5;
+    ctx.beginPath();
+    ctx.arc(cx-offset, cy, orbR, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = COLORS.STATUE_PINK;
+    ctx.shadowColor = COLORS.STATUE_PINK;
+    ctx.shadowBlur = cellSize*0.5;
+    ctx.beginPath();
+    ctx.arc(cx+offset, cy, orbR, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTuskShape(px,py,color,alpha){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*0.3;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = cellSize*0.5;
+    ctx.beginPath();
+    ctx.moveTo(cx-r*0.6, cy+r*0.7);
+    ctx.quadraticCurveTo(cx+r*0.3, cy+r*0.2, cx+r*0.5, cy-r*0.6);
+    ctx.quadraticCurveTo(cx+r*0.1, cy-r*0.1, cx-r*0.3, cy+r*0.4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = Math.max(1, cellSize*0.02);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawDecoyPen(px,py,pulse){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const len = cellSize*0.5;
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(-0.7);
+    ctx.fillStyle = COLORS.DECOY_PEN;
+    ctx.shadowColor = COLORS.DECOY_PEN;
+    ctx.shadowBlur = cellSize * (0.5 + pulse*0.4);
+    ctx.beginPath();
+    ctx.moveTo(0,-len/2);
+    ctx.lineTo(cellSize*0.06, -len/2 + len*0.15);
+    ctx.lineTo(cellSize*0.06, len/2 - cellSize*0.08);
+    ctx.lineTo(0, len/2);
+    ctx.lineTo(-cellSize*0.06, len/2 - cellSize*0.08);
+    ctx.lineTo(-cellSize*0.06, -len/2 + len*0.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.rotate(0.7);
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-cellSize*0.18,-cellSize*0.28); ctx.lineTo(-cellSize*0.06,-cellSize*0.28);
+    ctx.moveTo(-cellSize*0.12,-cellSize*0.34); ctx.lineTo(-cellSize*0.12,-cellSize*0.22);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawDecoyStick(px,py){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const len = cellSize*0.55;
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(0.5);
+    ctx.fillStyle = COLORS.DECOY_STICK;
+    ctx.shadowColor = COLORS.DECOY_STICK;
+    ctx.shadowBlur = cellSize*0.3;
+    ctx.beginPath();
+    ctx.rect(-cellSize*0.06, -len/2, cellSize*0.12, len);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSnakeShape(px,py,color,alpha){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*0.28;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = cellSize*0.55;
+    ctx.lineWidth = Math.max(1, cellSize*0.08);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx-r, cy-r*0.6);
+    ctx.bezierCurveTo(cx-r*0.2, cy-r, cx+r*0.6, cy-r*0.2, cx-r*0.2, cy+r*0.2);
+    ctx.bezierCurveTo(cx-r*0.8, cy+r*0.5, cx+r*0.2, cy+r, cx+r, cy+r*0.6);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1, cellSize*0.025);
+    ctx.beginPath();
+    ctx.moveTo(cx+r, cy+r*0.6);
+    ctx.lineTo(cx+r*1.25, cy+r*0.45);
+    ctx.moveTo(cx+r, cy+r*0.6);
+    ctx.lineTo(cx+r*1.25, cy+r*0.75);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFeatherShape(px,py,fillColor,glowColor,alpha){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*0.3;
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(-0.4);
+    ctx.globalAlpha = alpha;
+
+    ctx.fillStyle = fillColor;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = cellSize*0.5;
+    ctx.beginPath();
+    ctx.moveTo(0,-r);
+    ctx.quadraticCurveTo(r*0.55,-r*0.2, 0, r);
+    ctx.quadraticCurveTo(-r*0.55,-r*0.2, 0,-r);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = Math.max(1, cellSize*0.035);
+    ctx.beginPath();
+    ctx.moveTo(0,-r*0.85); ctx.lineTo(0, r*0.85);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawDecoyOrb(px,py,pulse){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*(0.2 + pulse*0.05);
+    ctx.save();
+    ctx.fillStyle = COLORS.DECOY_GENERIC;
+    ctx.shadowColor = COLORS.DECOY_GENERIC;
+    ctx.shadowBlur = cellSize*(0.7 + pulse*0.5);
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1;
+    for(let a=0;a<4;a++){
+      const ang = a*(Math.PI/2) + performance.now()/900;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang)*r*1.4, cy + Math.sin(ang)*r*1.4);
+      ctx.lineTo(cx + Math.cos(ang)*r*1.9, cy + Math.sin(ang)*r*1.9);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEnemy(px,py,now){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*0.3;
+    const jitter = Math.sin(now/120)*cellSize*0.02;
+    ctx.save();
+    ctx.fillStyle = COLORS.ENEMY;
+    ctx.shadowColor = COLORS.ENEMY;
+    ctx.shadowBlur = cellSize*0.7;
+    ctx.beginPath();
+    ctx.arc(cx, cy-r*0.1+jitter, r*0.8, Math.PI, 0);
+    ctx.lineTo(cx+r*0.7, cy+r*0.6);
+    ctx.lineTo(cx+r*0.4, cy+r*0.3);
+    ctx.lineTo(cx+r*0.15, cy+r*0.6);
+    ctx.lineTo(cx-r*0.15, cy+r*0.3);
+    ctx.lineTo(cx-r*0.4, cy+r*0.6);
+    ctx.lineTo(cx-r*0.7, cy+r*0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = '#0a0a0a';
+    ctx.beginPath();
+    ctx.ellipse(cx-r*0.32, cy-r*0.1, r*0.16, r*0.2, 0, 0, Math.PI*2);
+    ctx.ellipse(cx+r*0.32, cy-r*0.1, r*0.16, r*0.2, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawCat(px,py,now){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*0.28;
+    const tailWag = Math.sin(now/300)*r*0.2;
+    ctx.save();
+    ctx.fillStyle = COLORS.CAT;
+    ctx.shadowColor = COLORS.CAT;
+    ctx.shadowBlur = cellSize*0.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy+r*0.1, r*0.75, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx-r*0.5, cy-r*0.4);
+    ctx.lineTo(cx-r*0.7, cy-r*0.9);
+    ctx.lineTo(cx-r*0.15, cy-r*0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx+r*0.5, cy-r*0.4);
+    ctx.lineTo(cx+r*0.7, cy-r*0.9);
+    ctx.lineTo(cx+r*0.15, cy-r*0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = COLORS.CAT;
+    ctx.shadowColor = COLORS.CAT;
+    ctx.shadowBlur = cellSize*0.4;
+    ctx.lineWidth = Math.max(1, cellSize*0.05);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx+r*0.7, cy+r*0.5);
+    ctx.quadraticCurveTo(cx+r*1.2, cy+r*0.6+tailWag, cx+r*1.1, cy-r*0.1+tailWag);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawMouseBeast(px,py,now){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*0.3;
+    ctx.save();
+    ctx.fillStyle = COLORS.MOUSE;
+    ctx.shadowColor = COLORS.MOUSE;
+    ctx.shadowBlur = cellSize*0.6;
+    ctx.beginPath();
+    ctx.ellipse(cx,cy,r*0.85,r*0.65,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx-r*0.5,cy-r*0.6,r*0.3,0,Math.PI*2);
+    ctx.arc(cx+r*0.5,cy-r*0.6,r*0.3,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.strokeStyle = COLORS.MOUSE;
+    ctx.shadowColor = COLORS.MOUSE;
+    ctx.shadowBlur = cellSize*0.3;
+    ctx.lineWidth = Math.max(1, cellSize*0.03);
+    ctx.beginPath();
+    ctx.moveTo(cx+r*0.7,cy+r*0.2);
+    ctx.quadraticCurveTo(cx+r*1.3,cy+r*0.4,cx+r*1.1,cy-r*0.3);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawHeadShape(px,py){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*0.28;
+    ctx.save();
+    ctx.fillStyle = COLORS.HEAD;
+    ctx.shadowColor = COLORS.HEAD;
+    ctx.shadowBlur = cellSize*0.5;
+    ctx.beginPath();
+    ctx.ellipse(cx,cy-r*0.1,r*0.8,r*0.7,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx-r*0.9,cy-r*0.1,r*0.35,r*0.5,0,0,Math.PI*2);
+    ctx.ellipse(cx+r*0.9,cy-r*0.1,r*0.35,r*0.5,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.strokeStyle = COLORS.HEAD;
+    ctx.shadowColor = COLORS.HEAD;
+    ctx.shadowBlur = cellSize*0.35;
+    ctx.lineWidth = Math.max(1, cellSize*0.08);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx-r*0.15, cy+r*0.5);
+    ctx.quadraticCurveTo(cx-r*0.4, cy+r*1.1, cx+r*0.1, cy+r*1.2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTulsiLeaf(px,py){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const r = cellSize*0.26;
+    ctx.save();
+    ctx.fillStyle = COLORS.TULSI;
+    ctx.shadowColor = COLORS.TULSI;
+    ctx.shadowBlur = cellSize*0.5;
+    ctx.beginPath();
+    ctx.ellipse(cx,cy,r*0.6,r,0.5,0,Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx-r*0.3,cy-r*0.6);
+    ctx.lineTo(cx+r*0.3,cy+r*0.6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFireTile(px,py,now){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const flick = (Math.sin(now/100)+1)/2;
+    ctx.save();
+    ctx.fillStyle = COLORS.FIRE;
+    ctx.shadowColor = COLORS.FIRE;
+    ctx.shadowBlur = cellSize*(0.6+flick*0.4);
+    ctx.beginPath();
+    ctx.moveTo(cx,cy-cellSize*0.32);
+    ctx.quadraticCurveTo(cx+cellSize*0.22,cy-cellSize*0.05,cx+cellSize*0.12,cy+cellSize*0.2);
+    ctx.quadraticCurveTo(cx+cellSize*0.05,cy+cellSize*0.32,cx,cy+cellSize*0.3);
+    ctx.quadraticCurveTo(cx-cellSize*0.05,cy+cellSize*0.32,cx-cellSize*0.12,cy+cellSize*0.2);
+    ctx.quadraticCurveTo(cx-cellSize*0.22,cy-cellSize*0.05,cx,cy-cellSize*0.32);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawDurvaBlades(px,py){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    ctx.save();
+    ctx.strokeStyle = COLORS.DURVA;
+    ctx.shadowColor = COLORS.DURVA;
+    ctx.shadowBlur = cellSize*0.35;
+    ctx.lineWidth = Math.max(1, cellSize*0.04);
+    ctx.lineCap = 'round';
+    for(let i=-1;i<=1;i++){
+      ctx.beginPath();
+      ctx.moveTo(cx+i*cellSize*0.12, cy+cellSize*0.22);
+      ctx.lineTo(cx+i*cellSize*0.18, cy-cellSize*0.22);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawPlate(px,py,pulse){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    const w = cellSize*(0.6 + pulse*0.05);
+    ctx.save();
+    ctx.fillStyle = COLORS.PLATE;
+    ctx.shadowColor = COLORS.PLATE;
+    ctx.shadowBlur = cellSize*(0.4+pulse*0.4);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w/2, w/2.6, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = Math.max(1,cellSize*0.02);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w/2, w/2.6, 0, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawEarth(px,py,color,alpha){
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = cellSize*0.5;
+    const pad = cellSize*0.2;
+    ctx.fillRect(px+pad, py+pad, cellSize-pad*2, cellSize-pad*2);
+    ctx.restore();
+  }
+
+  function drawRice(px,py,alpha){
+    const cx = px+cellSize/2, cy = py+cellSize/2;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = COLORS.RICE;
+    ctx.shadowColor = COLORS.RICE;
+    ctx.shadowBlur = cellSize*0.4;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, cellSize*0.06, cellSize*0.1, 0.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawWaterTile(px,py,now){
+    ctx.save();
+    const shimmer = (Math.sin(now/260 + (px+py)*0.02) + 1)/2;
+    ctx.globalAlpha = 0.6 + shimmer*0.25;
+    ctx.fillStyle = COLORS.WATER;
+    ctx.shadowColor = COLORS.WATER;
+    ctx.shadowBlur = cellSize * (0.9 + shimmer*0.5);
+    ctx.fillRect(px, py, cellSize, cellSize);
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px, py+cellSize*0.5);
+    ctx.quadraticCurveTo(px+cellSize*0.5, py+cellSize*0.35, px+cellSize, py+cellSize*0.5);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGlowTile(px,py,color,alpha){
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = cellSize * 0.9;
+    const pad = cellSize*0.18;
+    ctx.fillRect(px+pad, py+pad, cellSize-pad*2, cellSize-pad*2);
+    ctx.restore();
+  }
+
+  function drawGap(px,py){
+    ctx.save();
+    ctx.strokeStyle = COLORS.NARROW_GAP;
+    ctx.shadowColor = COLORS.NARROW_GAP;
+    ctx.shadowBlur = cellSize*0.6;
+    ctx.lineWidth = Math.max(2, cellSize*0.08);
+    const pad = cellSize*0.18;
+    ctx.beginPath();
+    ctx.moveTo(px+pad, py+pad);
+    ctx.lineTo(px+cellSize-pad, py+pad);
+    ctx.moveTo(px+pad, py+cellSize-pad);
+    ctx.lineTo(px+cellSize-pad, py+cellSize-pad);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPlayer(){
+    const cx = state.player.x*cellSize + cellSize/2;
+    const cy = state.player.y*cellSize + cellSize/2;
+    let r = cellSize*0.32;
+    if(state.isFat) r *= 1.5;
+
+    let playerColor = COLORS.PLAYER;
+    if([10, 17].includes(state.levelIdx) && state.mounted) playerColor = COLORS.MOUSE;
+    if([13, 17, 19].includes(state.levelIdx) && state.fireActive) playerColor = COLORS.FIRE;
+
+    if(state.isFlying){
+      ctx.save();
+      ctx.strokeStyle = COLORS.FEATHER_TRUE_GLOW;
+      ctx.shadowColor = COLORS.FEATHER_TRUE_GLOW;
+      ctx.shadowBlur = cellSize*1.4;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r*1.6, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if(state.levelIdx===9 && state.hasArtifact){
+      ctx.save();
+      ctx.strokeStyle = COLORS.ARTIFACT;
+      ctx.shadowColor = COLORS.ARTIFACT;
+      ctx.shadowBlur = cellSize*1.2;
+      ctx.lineWidth = Math.max(1, cellSize*0.06);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r*1.8, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = playerColor;
+    ctx.shadowColor = playerColor;
+    ctx.shadowBlur = cellSize * 1.6;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r*1.35, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = playerColor;
+    ctx.shadowColor = playerColor;
+    ctx.shadowBlur = cellSize * 1.1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = COLORS.PLAYER_CORE;
+    ctx.shadowColor = COLORS.PLAYER_CORE;
+    ctx.shadowBlur = cellSize * 0.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r*0.42, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function animationLoop(){
+    if(state.started && authOverlay.classList.contains('hidden') && rulesOverlay.classList.contains('hidden')){
+      render();
+    }
+    requestAnimationFrame(animationLoop);
+  }
+  requestAnimationFrame(animationLoop);
+
+  /* ============================================================
+     INPUT — KEYBOARD
+  ============================================================ */
+  const KEY_DIR = {
+    'ArrowUp':'up', 'KeyW':'up',
+    'ArrowDown':'down', 'KeyS':'down',
+    'ArrowLeft':'left', 'KeyA':'left',
+    'ArrowRight':'right', 'KeyD':'right'
+  };
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.code === 'Space' || e.code === 'KeyE'){
+      e.preventDefault();
+      triggerAction();
+      return;
+    }
+    const dirName = KEY_DIR[e.code];
+    if(dirName){
+      e.preventDefault();
+      movePlayer(dirName);
+    }
+  }, {passive:false});
+
+  /* ============================================================
+     INPUT — TOUCH D-PAD
+  ============================================================ */
+  function bindDpadBtn(id, dirName){
+    const el = document.getElementById(id);
+    el.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      el.classList.add('pressed');
+      movePlayer(dirName);
+    }, {passive:false});
+    el.addEventListener('pointerup', ()=> el.classList.remove('pressed'));
+    el.addEventListener('pointerleave', ()=> el.classList.remove('pressed'));
+    el.addEventListener('contextmenu', (e)=> e.preventDefault());
+  }
+
+  bindDpadBtn('dpad-up', 'up');
+  bindDpadBtn('dpad-down', 'down');
+  bindDpadBtn('dpad-left', 'left');
+  bindDpadBtn('dpad-right', 'right');
+
+  const actionBtn = document.getElementById('action-btn');
+  actionBtn.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    actionBtn.classList.add('pressed');
+    triggerAction();
+  }, {passive:false});
+  actionBtn.addEventListener('pointerup', ()=> actionBtn.classList.remove('pressed'));
+  actionBtn.addEventListener('pointerleave', ()=> actionBtn.classList.remove('pressed'));
+
+  document.addEventListener('touchmove', (e)=>{ e.preventDefault(); }, {passive:false});
+
+  /* ============================================================
+     AUTH FLOW
+  ============================================================ */
+  function resetSessionState(){
+    state.levelIdx = 0;
+    state.deathsTotal = 0;
+    state.timeTotal = 0;
+    state.deathsAct = 0;
+    state.timeAct = 0;
+    levelIntroShown.clear();
+  }
+
+  function beginGame(){
+    state.started = true;
+    enterLevel(state.levelIdx);
+    updateHUD();
+    resizeCanvas();
+    startTimer();
+  }
+
+  btnLogin.addEventListener('click', ()=>{
+    const phone = phoneInput.value.trim();
+    if(!/^[0-9]{7,15}$/.test(phone)){
+      authError.textContent = 'Enter a valid mobile number (7-15 digits).';
+      return;
+    }
+    authError.textContent = '';
+    state.isGuest = false;
+    state.phone = phone;
+
+    const save = loadSave(phone);
+    if(save){
+      state.levelIdx = save.levelIdx || 0;
+      state.deathsTotal = save.deathsTotal || 0;
+      state.timeTotal = save.timeTotal || 0;
+    } else {
+      resetSessionState();
+      persistSave();
+    }
+    state.deathsAct = 0;
+    state.timeAct = 0;
+    authOverlay.classList.add('hidden');
+    rulesOverlay.classList.remove('hidden');
+  });
+
+  btnGuest.addEventListener('click', ()=>{
+    authError.textContent = '';
+    state.isGuest = true;
+    state.phone = null;
+    resetSessionState();
+    authOverlay.classList.add('hidden');
+    rulesOverlay.classList.remove('hidden');
+  });
+
+  btnRulesBegin.addEventListener('click', ()=>{
+    rulesOverlay.classList.add('hidden');
+    beginGame();
+  });
+
+  profileChip.addEventListener('click', ()=>{
+    state.paused = true;
+    stopTimer();
+    if(!state.isGuest){
+      persistSave();
+    }
+    state.started = false;
+    phoneInput.value = state.isGuest ? '' : (state.phone || '');
+    authError.textContent = '';
+    authOverlay.classList.remove('hidden');
+  });
+
+  /* ============================================================
+     VISIBILITY HANDLING
+  ============================================================ */
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden){
+      state.paused = true;
+    } else if(state.started && !anyBlockingOverlayOpen()){
+      state.paused = false;
+    }
+  });
+
+  /* ============================================================
+     INIT
+  ============================================================ */
+  updateHUD();
+  resizeCanvas();
+
+})();
+</script>
+</body>
+</html>
